@@ -63,3 +63,5 @@ Vercel project ที่ต้องใช้:
 ## Cloudflare
 
 ดูรายละเอียดใน `cloudflare/README.md`
+
+<!-- Vercel Git integration test: 2026-09-06 -->
