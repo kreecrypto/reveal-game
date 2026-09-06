@@ -24,16 +24,23 @@
       <div class="panel hero-panel">
         <div class="eyebrow">REVEAL GAME · 3×3</div>
         <h1>เปิดทีละป้าย<br><span>แล้วทายจากภาพ</span></h1>
-        <p>1 เซ็ตมี 10 รูป กดป้ายหมายเลข 1–9 เพื่อเปิดดูทีละส่วน หรือกดเฉลยเพื่อเปิดภาพทั้งหมด</p>
-        <button class="button button-primary button-lg" data-action="start">
-          <span class="button-icon play-icon" aria-hidden="true"></span>
-          เริ่มเล่น
-        </button>
+        <p>เลือกป้ายหมายเลข 1–9 เพื่อเปิดดูทีละส่วน หรือกดเฉลยเพื่อเปิดภาพทั้งหมด</p>
+        <div class="answer-panel" style="margin:0 0 16px">
+          <span class="answer-label">ชุดเกม</span>
+          <strong data-ui="game-title" style="font-size:18px">กำลังโหลด...</strong>
+        </div>
+        <div class="action-row">
+          <button class="button button-primary button-lg" data-action="start">
+            <span class="button-icon play-icon" aria-hidden="true"></span>
+            เริ่มเล่น
+          </button>
+          <a class="button button-secondary button-lg" href="/setup.html">สร้าง / แก้ไขเกม</a>
+        </div>
       </div>
 
       <div class="rules-grid" aria-label="วิธีเล่น">
-        <article class="rule-card"><strong>1</strong><span>เลือกป้ายเลข 1–9</span></article>
-        <article class="rule-card"><strong>2</strong><span>เปิดดูภาพทีละส่วน</span></article>
+        <article class="rule-card"><strong>1</strong><span>อัปโหลดรูปและใส่เฉลยเองได้</span></article>
+        <article class="rule-card"><strong>2</strong><span>เลือกป้ายเลข 1–9 เพื่อเปิดภาพ</span></article>
         <article class="rule-card"><strong>3</strong><span>กดเฉลยแล้วไปต่อ</span></article>
       </div>
     </section>
@@ -74,18 +81,20 @@
     <section class="screen" data-screen="done">
       <div class="panel finish-panel">
         <div class="finish-icon" aria-hidden="true">★</div>
-        <div class="eyebrow">ครบ 10 รูปแล้ว</div>
+        <div class="eyebrow" data-ui="done-label">เล่นครบแล้ว</div>
         <h2>จบเซ็ตแล้ว</h2>
-        <p>เล่นใหม่ได้ทันที หรือกลับหน้าแรกเพื่อเริ่มใหม่ตั้งแต่รูปแรก</p>
+        <p>เล่นใหม่ได้ทันที หรือกลับไปแก้รูปและคำเฉลยในหน้า Setup</p>
         <div class="action-row action-row-centered">
           <button class="button button-primary" data-action="restart">เล่นใหม่</button>
+          <a class="button button-secondary" href="/setup.html">แก้ไขเกม</a>
           <button class="button button-ghost" data-action="home">หน้าแรก</button>
         </div>
       </div>
     </section>
   </main>
 
-  <div class="version-badge">v19</div>
+  <div class="version-badge">v20</div>
+  <script src="/js/storage.js"></script>
   <script src="/js/game.js" defer></script>
 </body>
 </html>
