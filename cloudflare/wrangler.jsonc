@@ -1,0 +1,19 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "reveal-game-api",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-06",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "reveal-game-db",
+      "database_id": "REPLACE_AFTER_CREATE"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "ASSETS",
+      "bucket_name": "reveal-game-assets"
+    }
+  ]
+}
