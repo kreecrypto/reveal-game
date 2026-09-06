@@ -93,6 +93,7 @@
       await loadQuestions();ensureTiles();renderHome();
       action('start').addEventListener('click',start);action('reveal').addEventListener('click',reveal);action('next').addEventListener('click',next);action('restart').addEventListener('click',start);
       $$('[data-action="home"]').forEach(btn=>btn.addEventListener('click',e=>{e.preventDefault();renderHome();showScreen('home')}));
+      if(new URLSearchParams(location.search).get('custom')==='1')start();
     }catch(e){fail(e)}
   };
   init();
