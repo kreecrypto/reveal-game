@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const tinyPng=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z7mAAAAAASUVORK5CYII=','base64');
+const tinyPng=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=','base64');
 
 async function fillFirstQuestion(page,{answer='แมวเทสต์'}={}){
   await page.locator('[data-field="file"]').first().setInputFiles({name:'test.png',mimeType:'image/png',buffer:tinyPng});
