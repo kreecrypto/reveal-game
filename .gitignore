@@ -5,3 +5,5 @@ node_modules
 !.env.example
 .wrangler
 .DS_Store
+playwright-report
+test-results
