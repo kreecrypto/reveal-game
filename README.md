@@ -2,66 +2,117 @@
 
 เกมเปิดป้ายภาพแนว Cute Arcade
 
-## ตอนนี้ใช้ระบบอะไรบ้าง
+## โครงสร้างหลักของโปรเจกต์
 
-- **GitHub** = ที่เก็บโค้ดหลัก (Source of Truth)
-- **Vercel** = เว็บ Production
-- **Cloudflare Worker** = API
-- **Cloudflare D1** = เก็บข้อมูลเกม/Session
-- **Cloudflare R2** = เก็บรูปที่อัปโหลด
+ให้จำง่ายๆ แบบนี้:
 
-## วิธีทำงานที่ต้องการ
+**Vercel → GitHub → Cloudflare**
 
-หลังเชื่อม GitHub กับ Vercel แล้ว การทำงานจะง่ายแบบนี้:
+แต่แต่ละตัวมีหน้าที่ต่างกัน:
 
-1. แก้โค้ดใน GitHub
-2. Push เข้า branch `main`
-3. Vercel จะสร้าง Production deployment ให้อัตโนมัติ
-4. เปิด `reveal-game.vercel.app` เพื่อตรวจของจริง
+### 1. Vercel = หน้าเว็บที่ผู้เล่นเปิด
 
-ไม่ต้องส่งไฟล์ HTML เข้า Vercel แบบ manual อีก
+URL Production:
 
-## เชื่อม GitHub กับ Vercel (ทำครั้งเดียว)
+`https://reveal-game.vercel.app`
 
-Repo ที่ต้องเชื่อม:
+Vercel รับโค้ด Frontend จาก GitHub branch `main` แล้ว deploy ให้อัตโนมัติ
+
+### 2. GitHub = Source of Truth
+
+Repo หลัก:
 
 `kreecrypto/reveal-game`
 
-Vercel project ที่ต้องใช้:
+ทุกอย่างต้องเริ่มจาก GitHub ก่อน เช่น
 
-`reveal-game`
+- หน้าเกม `index.html`
+- ตั้งค่า Vercel `vercel.json`
+- Backend Cloudflare `cloudflare/`
+- Database migrations
 
-ทำตามนี้ใน Vercel:
+กฎสำคัญ: **ห้ามแก้ Production สดโดยไม่ผ่าน GitHub**
 
-1. เปิด project `reveal-game`
-2. เข้า **Settings**
-3. เข้าเมนู **Git**
-4. กด **Connect Git Repository**
-5. เลือก **GitHub**
-6. เลือก repo `kreecrypto/reveal-game`
-7. ตั้ง **Production Branch** เป็น `main`
-8. ตรวจว่า **Root Directory** เป็น `./` หรือเว้นว่าง
-9. Save
+### 3. Cloudflare = Backend ของเกม
 
-หลังจากนี้ทุกครั้งที่ `main` มี commit ใหม่ Vercel จะ deploy ให้อัตโนมัติ
+Cloudflare ใช้แยกเป็น 3 ส่วน:
+
+- Worker `reveal-game-api` = API
+- D1 `reveal-game-db` = Database
+- R2 `reveal-game-assets` = รูปเกม
+
+Frontend บน Vercel จะเรียก API ของ Cloudflare Worker โดยตรง
+
+## Flow ตอนผู้เล่นใช้งาน
+
+```text
+ผู้เล่น
+  ↓
+Vercel Frontend
+  ↓ API
+Cloudflare Worker
+  ├─ D1 Database
+  └─ R2 Assets
+```
+
+## Flow ตอนเราแก้ระบบ
+
+```text
+แก้โค้ด
+  ↓
+GitHub main
+  ├─ Frontend เปลี่ยน → Vercel Auto Deploy
+  └─ cloudflare/** เปลี่ยน → Cloudflare Workers Builds Auto Deploy
+```
+
+## สถานะตอนนี้
+
+- GitHub repo: พร้อม
+- Vercel ↔ GitHub: เชื่อมแล้ว
+- Vercel Production: Auto Deploy จาก `main` แล้ว
+- Cloudflare Backend code: พร้อมใน `cloudflare/`
+- Cloudflare D1/R2: ต้องสร้าง resource จริงใน Cloudflare account ก่อน
+- Cloudflare Workers Builds: ยังต้องเชื่อม repo `kreecrypto/reveal-game`
+
+## GitHub → Vercel
+
+เชื่อมแล้ว โดยใช้:
+
+- Repo: `kreecrypto/reveal-game`
+- Production Branch: `main`
+- Root Directory: `./`
+
+หลังจากนี้ทุก commit ที่ `main` จะทำให้ Vercel deploy ใหม่อัตโนมัติ
+
+## GitHub → Cloudflare
+
+ตอนเชื่อม Cloudflare Workers Builds ให้ใช้:
+
+- Repository: `kreecrypto/reveal-game`
+- Production branch: `main`
+- Root directory: `cloudflare`
+- Worker name: `reveal-game-api`
+- Deploy command: `npx wrangler deploy`
+
+ก่อน deploy ต้องมี:
+
+- D1: `reveal-game-db`
+- R2: `reveal-game-assets`
+- D1 `database_id` จริงใน `cloudflare/wrangler.jsonc`
 
 ## ไฟล์สำคัญ
 
 - `index.html` = หน้าเกมหลัก
-- `vercel.json` = การตั้งค่า Vercel
-- `cloudflare/wrangler.jsonc` = การตั้งค่า Cloudflare Worker / D1 / R2
-- `cloudflare/src/index.js` = API Worker
-- `cloudflare/migrations/0001_init.sql` = โครงสร้างฐานข้อมูลเริ่มต้น
+- `vercel.json` = Vercel config
+- `cloudflare/wrangler.jsonc` = Cloudflare bindings/config
+- `cloudflare/src/index.js` = Worker API
+- `cloudflare/migrations/` = Database schema
+- `cloudflare/README.md` = คู่มือ Backend แบบละเอียด
 
 ## กฎของโปรเจกต์
 
-- ให้ GitHub `main` เป็น Source of Truth
-- ห้ามแก้ Production โดยอัป HTML ตรง ถ้าไม่ใช่กรณี Recovery
-- ก่อนปล่อย Production ต้องตรวจหน้าเว็บจริงบนมือถือ
-- ถ้า Production พัง ให้ rollback ไป commit ก่อนหน้า แทนการแก้สดบน Production
-
-## Cloudflare
-
-ดูรายละเอียดใน `cloudflare/README.md`
-
-<!-- Vercel Git integration test: 2026-09-06 -->
+- GitHub `main` คือ Source of Truth
+- Frontend deploy ผ่าน GitHub → Vercel เท่านั้น
+- Backend deploy ผ่าน GitHub → Cloudflare เท่านั้น
+- ก่อนปล่อย Production ต้องตรวจของจริง
+- ถ้าพัง ให้ rollback commit/deployment แทนการแก้สดบน Production
