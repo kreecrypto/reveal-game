@@ -1,118 +1,130 @@
-# Reveal Game
+# Reveal Game v20.5
 
-เกมเปิดป้ายภาพแนว Cute Arcade
+เกมเปิดป้ายภาพ 3×3 แนว Cute Arcade
 
-## โครงสร้างหลักของโปรเจกต์
+Production: `https://reveal-game.vercel.app`
 
-ให้จำง่ายๆ แบบนี้:
+## Source of Truth
 
-**Vercel → GitHub → Cloudflare**
+GitHub repo: `kreecrypto/reveal-game`
 
-แต่แต่ละตัวมีหน้าที่ต่างกัน:
+- `main` = Production source of truth
+- Vercel deploy frontend อัตโนมัติจาก `main`
+- ห้ามแก้ Production สดโดยไม่ผ่าน GitHub
 
-### 1. Vercel = หน้าเว็บที่ผู้เล่นเปิด
-
-URL Production:
-
-`https://reveal-game.vercel.app`
-
-Vercel รับโค้ด Frontend จาก GitHub branch `main` แล้ว deploy ให้อัตโนมัติ
-
-### 2. GitHub = Source of Truth
-
-Repo หลัก:
-
-`kreecrypto/reveal-game`
-
-ทุกอย่างต้องเริ่มจาก GitHub ก่อน เช่น
-
-- หน้าเกม `index.html`
-- ตั้งค่า Vercel `vercel.json`
-- Backend Cloudflare `cloudflare/`
-- Database migrations
-
-กฎสำคัญ: **ห้ามแก้ Production สดโดยไม่ผ่าน GitHub**
-
-### 3. Cloudflare = Backend ของเกม
-
-Cloudflare ใช้แยกเป็น 3 ส่วน:
-
-- Worker `reveal-game-api` = API
-- D1 `reveal-game-db` = Database
-- R2 `reveal-game-assets` = รูปเกม
-
-Frontend บน Vercel จะเรียก API ของ Cloudflare Worker โดยตรง
-
-## Flow ตอนผู้เล่นใช้งาน
+## Architecture ที่ใช้งานจริงใน v20.5
 
 ```text
-ผู้เล่น
-  ↓
-Vercel Frontend
-  ↓ API
-Cloudflare Worker
-  ├─ D1 Database
-  └─ R2 Assets
+Player / Game Setup
+        ↓
+Vercel Static Frontend
+        ↓
+Browser IndexedDB
+        ├─ game title
+        ├─ questions
+        ├─ answers
+        └─ uploaded image blobs
+
+Fallback demo
+        ↓
+data/questions.json
 ```
 
-## Flow ตอนเราแก้ระบบ
+### Frontend
+
+- `index.html` = หน้าเล่นเกม
+- `setup.html` = หน้า Game Setup Builder
+- `css/game.css` = Design tokens + shared game UI
+- `css/setup.css` = Setup-only UI
+- `js/game.js` = player state / reveal flow
+- `js/setup.js` = builder / validation / image processing / dirty-state protection
+- `js/storage.js` = IndexedDB adapter
+- `data/questions.json` = demo fallback
+
+## Game Setup
+
+ผู้ใช้สามารถ:
+
+- ตั้งชื่อเกม
+- อัปโหลดรูป 1–10 ข้อ
+- ใส่คำเฉลย
+- แก้คำถาม
+- เพิ่ม / ลบ / Undo ข้อ
+- Save ลง IndexedDB
+- เริ่มเล่นทันที
+
+ข้อมูลใน v20.5 เป็น **local to browser/device** ยังไม่ sync ข้ามเครื่อง
+
+## Image pipeline
+
+ทุกภาพที่ Upload จะผ่าน:
 
 ```text
-แก้โค้ด
-  ↓
-GitHub main
-  ├─ Frontend เปลี่ยน → Vercel Auto Deploy
-  └─ cloudflare/** เปลี่ยน → Cloudflare Workers Builds Auto Deploy
+Decode → Resize (max 1600px) → Re-encode WebP → Size guard → IndexedDB
 ```
 
-## สถานะตอนนี้
+- Source file สูงสุด 15MB
+- เป้าหมายหลังบีบอัดประมาณ ≤2.5MB
+- Hard limit หลังบีบอัด 4MB
 
-- GitHub repo: พร้อม
-- Vercel ↔ GitHub: เชื่อมแล้ว
-- Vercel Production: Auto Deploy จาก `main` แล้ว
-- Cloudflare Backend code: พร้อมใน `cloudflare/`
-- Cloudflare D1/R2: ต้องสร้าง resource จริงใน Cloudflare account ก่อน
-- Cloudflare Workers Builds: ยังต้องเชื่อม repo `kreecrypto/reveal-game`
+## Unsaved-change protection
 
-## GitHub → Vercel
+หน้า Setup มี dirty-state guard:
 
-เชื่อมแล้ว โดยใช้:
+- เตือนเมื่อกดกลับหน้าเกมทั้งที่ยังไม่ได้ Save
+- เตือน browser เมื่อ refresh / ปิดแท็บ
+- Save / Restore / Clear สำเร็จแล้วจะ reset dirty state
 
-- Repo: `kreecrypto/reveal-game`
-- Production Branch: `main`
-- Root Directory: `./`
+## Automated QA
 
-หลังจากนี้ทุก commit ที่ `main` จะทำให้ Vercel deploy ใหม่อัตโนมัติ
+Root project มี Playwright smoke tests
 
-## GitHub → Cloudflare
+```bash
+npm install
+npm run check
+npm test
+```
 
-ตอนเชื่อม Cloudflare Workers Builds ให้ใช้:
+ครอบคลุมอย่างน้อย:
 
-- Repository: `kreecrypto/reveal-game`
-- Production branch: `main`
-- Root directory: `cloudflare`
-- Worker name: `reveal-game-api`
-- Deploy command: `npx wrangler deploy`
+- Setup → Upload + Answer → Save
+- Reload → ข้อมูลยังอยู่
+- Start Game → เปิดป้าย → Reveal
+- Unsaved-change modal
+- Delete → Undo
 
-ก่อน deploy ต้องมี:
+GitHub Actions workflow: `.github/workflows/ci.yml`
 
-- D1: `reveal-game-db`
-- R2: `reveal-game-assets`
-- D1 `database_id` จริงใน `cloudflare/wrangler.jsonc`
+## Security headers
 
-## ไฟล์สำคัญ
+`vercel.json` กำหนด:
 
-- `index.html` = หน้าเกมหลัก
-- `vercel.json` = Vercel config
-- `cloudflare/wrangler.jsonc` = Cloudflare bindings/config
-- `cloudflare/src/index.js` = Worker API
-- `cloudflare/migrations/` = Database schema
-- `cloudflare/README.md` = คู่มือ Backend แบบละเอียด
+- CSP
+- `X-Frame-Options: DENY`
+- `X-Content-Type-Options: nosniff`
+- Referrer Policy
+- Permissions Policy
 
-## กฎของโปรเจกต์
+## Cloudflare folder
 
-- GitHub `main` คือ Source of Truth
-- Frontend deploy ผ่าน GitHub → Vercel เท่านั้น
-- Backend deploy ผ่าน GitHub → Cloudflare เท่านั้น
-- ก่อนปล่อย Production ต้องตรวจของจริง
-- ถ้าพัง ให้ rollback commit/deployment แทนการแก้สดบน Production
+`cloudflare/` เป็น **future/dormant backend** สำหรับ phase ที่ต้องการ:
+
+- แชร์เกมข้ามเครื่อง
+- D1 database
+- R2 image storage
+- public game links
+
+**v20.5 frontend ยังไม่ได้เรียก Cloudflare API ใน runtime**
+
+อย่า deploy หรือถือ `cloudflare/` เป็น production dependency ของ v20.5 จนกว่าจะมี release plan สำหรับ backend โดยตรง
+
+## Release rule
+
+ก่อนปิด release:
+
+1. `npm run check` ผ่าน
+2. Playwright ผ่าน
+3. GitHub CI ผ่าน
+4. Vercel Production = READY
+5. Production `/` และ `/setup.html` ตอบ 200
+6. ไม่มี P0/P1 regression blocker
