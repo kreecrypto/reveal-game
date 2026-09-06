@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#7C5CFC">
+  <title>สร้างเกม — เปิดป้ายดิ</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Mitr:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/game.css">
+  <link rel="stylesheet" href="/css/setup.css">
+</head>
+<body>
+  <main class="app-shell setup-shell">
+    <header class="game-topbar">
+      <a class="brand" href="/" aria-label="กลับหน้าเกม">
+        <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
+        <span>สร้างเกม</span>
+      </a>
+      <div class="round-chip"><strong data-ui="count">1</strong>/10 รูป</div>
+    </header>
+
+    <section class="panel setup-intro">
+      <div class="eyebrow">GAME SETUP · v20</div>
+      <h1>สร้างเกมของคุณเอง</h1>
+      <p>อัปโหลดรูป ใส่คำถามและเฉลย แล้วกดบันทึกเพื่อเล่นเป็นเกมเปิดป้าย 3×3 ได้ทันที</p>
+      <label class="field-label" for="game-title">ชื่อชุดเกม</label>
+      <input id="game-title" class="text-input" maxlength="80" placeholder="เช่น ทายภาพสัตว์" value="เกมของฉัน">
+    </section>
+
+    <section class="builder-toolbar" aria-label="เครื่องมือสร้างเกม">
+      <div>
+        <strong>รายการรูป</strong>
+        <span>เพิ่มได้สูงสุด 10 รูป</span>
+      </div>
+      <button class="button button-ghost" type="button" data-action="add">+ เพิ่มรูป</button>
+    </section>
+
+    <section data-ui="items" class="setup-list" aria-live="polite"></section>
+
+    <div class="setup-actions panel">
+      <div class="save-status" data-ui="status">ข้อมูลจะบันทึกอยู่ใน browser เครื่องนี้</div>
+      <div class="action-row">
+        <button class="button button-ghost" type="button" data-action="clear">ล้างชุดเกม</button>
+        <button class="button button-secondary" type="button" data-action="save">บันทึก</button>
+        <button class="button button-primary" type="button" data-action="play">บันทึกและเริ่มเล่น</button>
+      </div>
+    </div>
+  </main>
+
+  <template id="item-template">
+    <article class="question-card panel" data-item>
+      <div class="question-card-head">
+        <div class="question-no">01</div>
+        <div>
+          <strong>รูปที่ <span data-field="number">1</span></strong>
+          <span class="item-state" data-field="state">ยังไม่ใส่รูป</span>
+        </div>
+        <button class="icon-button danger" type="button" data-action="remove-item" aria-label="ลบรูปนี้">×</button>
+      </div>
+
+      <div class="question-grid">
+        <div class="upload-zone" data-field="upload-zone">
+          <img data-field="preview" alt="ตัวอย่างรูป">
+          <div class="upload-empty" data-field="upload-empty">
+            <strong>+ อัปโหลดรูป</strong>
+            <span>JPG / PNG / WebP</span>
+          </div>
+          <input data-field="file" type="file" accept="image/*" hidden>
+        </div>
+
+        <div class="question-fields">
+          <label class="field-label">คำถาม</label>
+          <input class="text-input" data-field="question" maxlength="120" value="ภาพนี้คืออะไร?">
+          <label class="field-label">คำเฉลย</label>
+          <input class="text-input" data-field="answer" maxlength="120" placeholder="เช่น แมว">
+          <button class="button button-ghost change-image" type="button" data-action="choose-image">เปลี่ยน / เลือกรูป</button>
+        </div>
+      </div>
+    </article>
+  </template>
+
+  <div class="toast" data-ui="toast" role="status" aria-live="polite"></div>
+  <div class="version-badge">v20</div>
+  <script src="/js/storage.js"></script>
+  <script src="/js/setup.js" defer></script>
+</body>
+</html>
