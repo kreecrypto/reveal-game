@@ -3,11 +3,15 @@
   "name": "reveal-game-api",
   "main": "src/index.js",
   "compatibility_date": "2026-09-06",
+  "vars": {
+    "ALLOWED_ORIGINS": "https://reveal-game.vercel.app,http://localhost:3000,http://127.0.0.1:5500"
+  },
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "reveal-game-db",
-      "database_id": "REPLACE_AFTER_CREATE"
+      "database_id": "REPLACE_AFTER_CREATE",
+      "migrations_dir": "migrations"
     }
   ],
   "r2_buckets": [
