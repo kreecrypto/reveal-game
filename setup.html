@@ -12,9 +12,9 @@
   <link rel="stylesheet" href="/css/setup.css">
 </head>
 <body>
-  <main class="app-shell setup-shell">
+  <main class="app-shell setup-shell" data-ui="main">
     <header class="game-topbar">
-      <a class="brand" href="/" aria-label="กลับหน้าเกม">
+      <a class="brand" href="/" data-action="leave-home" aria-label="กลับหน้าเกม">
         <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
         <span>ปั้นเกม</span>
       </a>
@@ -106,7 +106,7 @@
   </div>
 
   <div class="game-modal-backdrop is-hidden" data-ui="clear-modal">
-    <section class="game-modal" role="dialog" aria-modal="true" aria-labelledby="clear-modal-title">
+    <section class="game-modal" role="dialog" aria-modal="true" aria-labelledby="clear-modal-title" tabindex="-1">
       <div class="game-modal-icon" aria-hidden="true">?</div>
       <h2 id="clear-modal-title">จะเริ่มใหม่จริงดิ?</h2>
       <p>เกมที่เก็บไว้ในเครื่องนี้จะโดนล้างนะ กู้กลับไม่ได้รอบนี้</p>
@@ -117,7 +117,19 @@
     </section>
   </div>
 
-  <div class="version-badge">v20.4</div>
+  <div class="game-modal-backdrop is-hidden" data-ui="leave-modal">
+    <section class="game-modal" role="dialog" aria-modal="true" aria-labelledby="leave-modal-title" aria-describedby="leave-modal-desc" tabindex="-1">
+      <div class="game-modal-icon" aria-hidden="true">!</div>
+      <h2 id="leave-modal-title">ยังไม่ได้เก็บนะ จะไปจริงดิ?</h2>
+      <p id="leave-modal-desc">ของที่เพิ่งแก้จะหาย ถ้ายังอยากได้อยู่ก็กดอยู่ต่อแล้วเก็บก่อน</p>
+      <div class="game-modal-actions">
+        <button class="button button-ghost" type="button" data-action="cancel-leave">อยู่ต่อ</button>
+        <button class="button button-secondary" type="button" data-action="discard-leave">ไปเลย ไม่เก็บ</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="version-badge">v20.5</div>
   <script src="/js/storage.js"></script>
   <script src="/js/setup.js" defer></script>
 </body>
