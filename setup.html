@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#7C5CFC">
-  <title>สร้างเกม — เปิดป้ายดิ</title>
+  <title>ปั้นเกม — เปิดป้ายดิ</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Mitr:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -16,47 +16,47 @@
     <header class="game-topbar">
       <a class="brand" href="/" aria-label="กลับหน้าเกม">
         <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
-        <span>สร้างเกม</span>
+        <span>ปั้นเกม</span>
       </a>
       <div class="round-chip"><strong data-ui="count">1</strong>/10 รูป</div>
     </header>
 
     <section class="setup-step panel">
-      <div class="step-kicker"><span>1</span> ตั้งชื่อเกม</div>
-      <h1>เกมนี้ชื่ออะไร?</h1>
-      <p>ตั้งชื่อสั้น ๆ ให้จำง่าย เช่น “ทายภาพสัตว์”</p>
-      <input id="game-title" class="text-input text-input-lg" maxlength="80" placeholder="ชื่อเกม" value="เกมของฉัน">
+      <div class="step-kicker"><span>1</span> ตั้งชื่อก่อน เดี๋ยวจำไม่ได้</div>
+      <h1>เกมนี้จะชื่ออะไรดี?</h1>
+      <p>เอาสั้น ๆ จำง่าย ๆ แบบ “ทายดิ นี่ตัวอะไร”</p>
+      <input id="game-title" class="text-input text-input-lg" maxlength="80" placeholder="พิมพ์ชื่อเกมตรงนี้" value="เกมของฉัน">
     </section>
 
     <section class="setup-section-head">
       <div>
-        <div class="step-kicker"><span>2</span> เพิ่มรูปและเฉลย</div>
-        <h2>สร้างข้อคำถาม</h2>
-        <p>แต่ละข้อใช้รูป 1 รูป + คำเฉลย 1 คำ</p>
+        <div class="step-kicker"><span>2</span> โยนรูปมา แล้วบอกเฉลย</div>
+        <h2>ใส่ของให้ครบ แล้วค่อยลุย</h2>
+        <p>1 ข้อ = 1 รูป + 1 เฉลย แค่นี้เอง</p>
       </div>
-      <button class="button button-ghost" type="button" data-action="add">+ เพิ่มข้อ</button>
+      <button class="button button-ghost" type="button" data-action="add">+ เพิ่มอีกข้อ</button>
     </section>
 
     <section class="readiness-card" aria-live="polite">
       <div>
-        <span class="readiness-label">ความพร้อมของเกม</span>
-        <strong data-ui="readiness-text">ยังไม่พร้อมเล่น</strong>
+        <span class="readiness-label">เช็กของก่อนลุย</span>
+        <strong data-ui="readiness-text">ยังไม่ครบ อย่าเพิ่งรีบ</strong>
       </div>
       <div class="readiness-progress"><span data-ui="readiness-bar"></span></div>
-      <small data-ui="readiness-detail">เพิ่มรูปและคำเฉลยอย่างน้อย 1 ข้อ</small>
+      <small data-ui="readiness-detail">ใส่รูปกับเฉลยให้ครบก่อนนะ</small>
     </section>
 
     <section data-ui="items" class="setup-list" aria-live="polite"></section>
 
     <section class="setup-footer panel">
       <div>
-        <span class="save-status" data-ui="status">ข้อมูลจะบันทึกอยู่ในเครื่องนี้</span>
-        <strong data-ui="footer-summary">0 ข้อพร้อมเล่น</strong>
+        <span class="save-status" data-ui="status">กดเก็บไว้ก่อน เดี๋ยวหายแล้วจะหาว่าไม่เตือน</span>
+        <strong data-ui="footer-summary">ยังไม่มีข้อพร้อมลุย</strong>
       </div>
       <div class="footer-actions">
-        <button class="button button-ghost" type="button" data-action="clear">เริ่มใหม่</button>
-        <button class="button button-secondary" type="button" data-action="save">บันทึก</button>
-        <button class="button button-primary" type="button" data-action="play">เริ่มเล่น</button>
+        <button class="button button-ghost" type="button" data-action="clear">ล้างแล้วเริ่มใหม่</button>
+        <button class="button button-secondary" type="button" data-action="save">เก็บไว้ก่อน</button>
+        <button class="button button-primary" type="button" data-action="play">ลุยเลย</button>
       </div>
     </section>
   </main>
@@ -67,33 +67,33 @@
         <div class="question-no">01</div>
         <div>
           <strong>ข้อที่ <span data-field="number">1</span></strong>
-          <span class="item-state" data-field="state">ยังไม่พร้อม</span>
+          <span class="item-state" data-field="state">ยังไม่ครบ</span>
         </div>
         <button class="icon-button danger" type="button" data-action="remove-item" aria-label="ลบข้อนี้">×</button>
       </div>
 
       <div class="question-grid">
         <div class="upload-block">
-          <div class="mini-label">รูปภาพ</div>
+          <div class="mini-label">รูปที่จะเอามาแกล้งคน</div>
           <button class="upload-zone" type="button" data-field="upload-zone">
             <img data-field="preview" alt="ตัวอย่างรูป">
             <span class="upload-empty" data-field="upload-empty">
-              <strong>เลือกรูป</strong>
-              <small>แตะเพื่ออัปโหลดจากเครื่อง</small>
+              <strong>โยนรูปมา</strong>
+              <small>แตะแล้วเลือกรูปจากเครื่อง</small>
             </span>
           </button>
           <input data-field="file" type="file" accept="image/*" hidden>
-          <button class="text-action is-hidden" type="button" data-action="choose-image">เปลี่ยนรูป</button>
+          <button class="text-action is-hidden" type="button" data-action="choose-image">เปลี่ยนรูปดิ</button>
         </div>
 
         <div class="question-fields">
-          <label class="field-label">คำเฉลย <span>จำเป็น</span></label>
-          <input class="text-input answer-input" data-field="answer" maxlength="120" placeholder="เช่น แมว">
-          <label class="field-label">คำถาม <span class="optional">ไม่บังคับ</span></label>
-          <input class="text-input" data-field="question" maxlength="120" value="ภาพนี้คืออะไร?">
+          <label class="field-label">เฉลยว่าอะไร <span>ต้องมีนะ</span></label>
+          <input class="text-input answer-input" data-field="answer" maxlength="120" placeholder="เช่น แมว... หรือจะกวนกว่านี้ก็ได้">
+          <label class="field-label">อยากถามว่าอะไร <span class="optional">ไม่ใส่ก็ได้</span></label>
+          <input class="text-input" data-field="question" maxlength="120" value="นี่มันตัวอะไรเนี่ย?">
           <div class="item-checklist" data-field="checklist">
-            <span data-check="image">○ มีรูป</span>
-            <span data-check="answer">○ มีเฉลย</span>
+            <span data-check="image">○ รูปมาแล้ว</span>
+            <span data-check="answer">○ เฉลยมาแล้ว</span>
           </div>
         </div>
       </div>
@@ -101,7 +101,7 @@
   </template>
 
   <div class="toast" data-ui="toast" role="status" aria-live="polite"></div>
-  <div class="version-badge">v20.2</div>
+  <div class="version-badge">v20.3</div>
   <script src="/js/storage.js"></script>
   <script src="/js/setup.js" defer></script>
 </body>
