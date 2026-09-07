@@ -76,8 +76,7 @@ async function parsePublishForm(request) {
     const question=text(q.question,MAX_TEXT) || 'นี่มันตัวอะไรเนี่ย?';
     const answer=text(q.answer,MAX_TEXT);
     if (!answer) throw new Error('answer_required');
-    const field=`image${i}`;
-    const file=form.get(field);
+    const file=form.get(`image${i}`);
     if (!(file instanceof File)) throw new Error('image_required');
     if (!String(file.type||'').startsWith('image/')) throw new Error('invalid_image_type');
     if (file.size<=0 || file.size>MAX_IMAGE_BYTES) throw new Error('image_too_large');
@@ -141,14 +140,13 @@ async function createGame(request, env) {
   const editHash=await sha256(editToken);
   const keys=await putImages(env,gameId,questions);
   try {
-    const statements=[
+    await env.DB.batch([
       env.DB.prepare(`INSERT INTO games
         (id,title,description,difficulty,status,slug,edit_token_hash,published_at,schema_version)
         VALUES (?, ?, NULL, 'normal', 'published', ?, ?, CURRENT_TIMESTAMP, 2)`)
         .bind(gameId,title,slug,editHash),
       ...(await insertRounds(env,gameId,questions,keys))
-    ];
-    await env.DB.batch(statements);
+    ]);
   } catch (error) {
     await deleteAssets(env,keys);
     throw error;
@@ -166,12 +164,11 @@ async function updateGame(request, env, slug) {
   const oldKeys=await assetKeysForGame(env,game.id);
   const newKeys=await putImages(env,game.id,questions);
   try {
-    const statements=[
+    await env.DB.batch([
       env.DB.prepare(`UPDATE games SET title=?,status='published',updated_at=CURRENT_TIMESTAMP,published_at=CURRENT_TIMESTAMP,schema_version=2 WHERE id=?`).bind(title,game.id),
       env.DB.prepare('DELETE FROM game_rounds WHERE game_id = ?').bind(game.id),
       ...(await insertRounds(env,game.id,questions,newKeys))
-    ];
-    await env.DB.batch(statements);
+    ]);
   } catch (error) {
     await deleteAssets(env,newKeys);
     throw error;
@@ -180,15 +177,15 @@ async function updateGame(request, env, slug) {
   return json(request,env,{ok:true,slug,questionCount:questions.length});
 }
 
-async function publicGame(request, env, url, slug) {
+async function publicGame(request, env, slug) {
   const game=await getPublished(env,slug);
   if (!game) return json(request,env,{error:'game_not_found'},404);
   const rows=await env.DB.prepare(`SELECT id,sort_order,question,answer_json,asset_key FROM game_rounds WHERE game_id=? ORDER BY sort_order ASC`).bind(game.id).all();
   const questions=(rows.results||[]).map((r,i)=>{
     let answer=''; try { answer=JSON.parse(r.answer_json)?.[0]||''; } catch {}
-    return {id:i+1,question:r.question,answer,image:`${url.origin}/api/v2/assets/${encodeURIComponent(r.asset_key)}`};
+    return {id:i+1,question:r.question,answer,asset:encodeURIComponent(r.asset_key)};
   });
-  return json(request,env,{game:{slug:game.slug,title:game.title,updatedAt:game.updated_at},questions},{},{'Cache-Control':'public, max-age=30'});
+  return json(request,env,{game:{slug:game.slug,title:game.title,updatedAt:game.updated_at},questions},200,{'Cache-Control':'public, max-age=30'});
 }
 
 async function assetResponse(request, env, key) {
@@ -214,7 +211,7 @@ export default {
       if ((url.pathname==='/health'||url.pathname==='/api/v2/health') && request.method==='GET') return json(request,env,{ok:true,service:'reveal-game-share-api',version:'v21'});
       if (url.pathname==='/api/v2/games' && request.method==='POST') return createGame(request,env);
       const gameMatch=url.pathname.match(/^\/api\/v2\/games\/([a-z0-9]+)$/);
-      if (gameMatch && request.method==='GET') return publicGame(request,env,url,gameMatch[1]);
+      if (gameMatch && request.method==='GET') return publicGame(request,env,gameMatch[1]);
       if (gameMatch && request.method==='PUT') return updateGame(request,env,gameMatch[1]);
       const assetMatch=url.pathname.match(/^\/api\/v2\/assets\/(.+)$/);
       if (assetMatch && request.method==='GET') return assetResponse(request,env,decodeURIComponent(assetMatch[1]));
