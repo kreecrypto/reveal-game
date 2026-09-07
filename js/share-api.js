@@ -33,7 +33,11 @@
   };
 
   const health=()=>request('/health',{cache:'no-store'});
-  const fetchGame=slug=>request(`/games/${encodeURIComponent(slug)}`,{cache:'no-store'});
+  const fetchGame=async slug=>{
+    const payload=await request(`/games/${encodeURIComponent(slug)}`,{cache:'no-store'});
+    payload.questions=(payload.questions||[]).map(q=>({...q,image:q.image||`${base}/assets/${q.asset}`}));
+    return payload;
+  };
   const publish=game=>request('/games',{method:'POST',body:formForGame(game)});
   const update=(slug,editToken,game)=>request(`/games/${encodeURIComponent(slug)}`,{
     method:'PUT',headers:{'X-Edit-Token':editToken},body:formForGame(game)
