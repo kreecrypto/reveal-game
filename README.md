@@ -6,25 +6,27 @@ Production ปัจจุบัน: `https://reveal-game.vercel.app`
 
 > Release branch: `v21-shareable-game`
 >
-> v21 จะยังไม่ promote ขึ้น `main` จนกว่า Cloudflare deploy และ live API health gate จะผ่าน
+> v21 จะ promote ขึ้น `main` เมื่อ GitHub CI + Supabase live share E2E ผ่านครบ
 
-## เป้าหมาย v21
+## Architecture v21
 
-v20.6 เก็บเกมไว้ใน IndexedDB ของเครื่องคนสร้างเท่านั้น ส่วน v21 เพิ่มการ Publish ขึ้น Cloud เพื่อให้ส่งลิงก์แล้วคนอื่นเห็นและเล่นเกมชุดเดียวกันได้จากอีกเครื่อง
+v20.6 เก็บเกมไว้ใน IndexedDB ของเครื่องคนสร้างเท่านั้น ส่วน v21 เพิ่ม Publish/Share ให้คนอื่นเปิดลิงก์จากอีกเครื่องได้
 
 ```text
-Setup Builder
+Vercel Frontend
    ├─ IndexedDB = Draft / Offline / Local autosave
-   └─ Publish
+   └─ Publish / Read shared game
         ↓
-Cloudflare Worker — reveal-game-share-api
-   ├─ D1 = game / question / answer / order / edit token hash
-   └─ R2 = cropped WebP images
+Supabase
+   ├─ Data API + PostgreSQL RLS = game metadata / edit-token authorization
+   └─ Storage = public game images
         ↓
 Public slug
         ↓
 https://reveal-game.vercel.app/game/:slug
 ```
+
+ไม่มี Cloudflare Worker, D1, R2 หรือ Vercel share proxy ใน runtime path ของ v21 อีกต่อไป
 
 ## Public link vs Edit link
 
@@ -33,7 +35,52 @@ https://reveal-game.vercel.app/game/:slug
 - Public Play Link: `/game/:slug` — ส่งให้คนอื่นเล่นได้
 - Private Edit Link: `/setup.html?edit=:slug#token=:editToken` — เก็บไว้กับคนสร้างเท่านั้น
 
-Edit token ถูก hash ก่อนเก็บใน D1 และ public game endpoint ไม่คืน token ให้ Player
+Edit token ถูก SHA-256 ก่อนเก็บใน PostgreSQL และตัว token จริงอยู่ใน URL fragment จึงไม่ถูกส่งไปกับ request URL ตามปกติ
+
+## Supabase resources
+
+Project ref: `xhqrfovpsoccocakjxfk`
+
+### Database
+
+`public.reveal_games`
+
+```text
+id
+slug (unique)
+title
+edit_token_hash
+manifest (JSONB)
+status: draft | published | archived
+created_at
+updated_at
+published_at
+```
+
+เกมที่เผยแพร่ใช้ RPC `reveal_get_game(slug)` เพื่ออ่านทีละ slug แบบ unlisted link แทนการเปิดให้ anon list ตารางทั้งหมด
+
+### Storage
+
+Bucket: `reveal-game-assets`
+
+```text
+shared-games/
+  {slug}/
+    {asset-uuid}.{ext}
+```
+
+Bucket เป็น public-read สำหรับภาพที่แชร์ ส่วน insert/update/delete ถูก RLS ตรวจด้วย `X-Edit-Token` และ slug ของเกม
+
+## Security model
+
+- Browser ใช้ Supabase Publishable Key เท่านั้น
+- ไม่มี `service_role` / secret key อยู่ใน frontend
+- `public.reveal_games` เปิด RLS
+- Insert ทำได้เฉพาะ `draft`
+- Publish/update ต้องผ่าน `X-Edit-Token`
+- Token hash ตรวจใน PostgreSQL ผ่าน `reveal_token_matches(slug)`
+- Public player อ่านเกมผ่าน `reveal_get_game(slug)` เท่านั้น
+- รูปจำกัด 3 MB/ไฟล์, สูงสุด 10 ข้อ และรวมสูงสุด 20 MB ต่อ publish
 
 ## Frontend
 
@@ -42,71 +89,10 @@ Edit token ถูก hash ก่อนเก็บใน D1 และ public gam
 - `js/game.js` — local game + public shared game loading
 - `js/setup.js` — builder / image editor / IndexedDB draft
 - `js/storage.js` — local IndexedDB adapter
-- `js/share-api.js` — v21 public/publish API client
+- `js/share-api.js` — direct Supabase Data API + Storage client
 - `js/publish.js` — publish / update / remote edit import / share modal
 - `css/share.css` — publish/share UI
-- `vercel.json` — public `/game/:slug` route + security headers
-
-## Backend v21
-
-Backend ถูกแยกจาก legacy Worker เพื่อไม่ชนข้อมูลเดิม:
-
-- Worker: `cloudflare-v21/src/index.js`
-- Wrangler config: `cloudflare-v21/wrangler.jsonc`
-- Worker name: `reveal-game-share-api`
-- D1 binding: `DB` → `reveal-game-db`
-- R2 binding: `ASSETS` → `reveal-game-assets`
-- Migration: `cloudflare/migrations/0004_shareable_games.sql`
-
-### D1 tables
-
-```text
-share_games
-- id
-- slug (unique)
-- title
-- edit_token_hash
-- status
-- created_at
-- updated_at
-- published_at
-
-share_questions
-- id
-- game_id
-- position
-- question
-- answer
-- asset_key
-```
-
-### R2 layout
-
-```text
-shared-games/
-  {game-id}/
-    {asset-uuid}.webp
-```
-
-## API contract
-
-Worker runtime routes:
-
-```text
-GET  /api/v2/health
-POST /api/v2/games
-GET  /api/v2/games/:slug
-PUT  /api/v2/games/:slug
-GET  /api/v2/assets/:assetKey
-```
-
-Frontend contract uses same-origin prefix:
-
-```text
-/api/share/v2/*
-```
-
-Before Production release this prefix must proxy/rewrite to the deployed `reveal-game-share-api` Worker.
+- `vercel.json` — `/game/:slug` route + CSP allowing the Supabase project origin
 
 ## Publish flow
 
@@ -117,40 +103,32 @@ Save IndexedDB draft
 ↓
 เผยแพร่เกม
 ↓
-Upload manifest + cropped image blobs
+Create reveal_games row as draft
 ↓
-Worker validates payload
+Upload cropped image blobs to Supabase Storage
 ↓
-R2 stores images
-↓
-D1 stores game/questions
-↓
-Worker returns slug + one-time edit token
+PATCH manifest + status=published using X-Edit-Token
 ↓
 Share Modal
 ├─ Copy Public Link
 └─ Copy Private Edit Link
 ```
 
-Publishing an already-published local game uses the stored `slug + editToken` and performs `PUT` so the public URL stays the same.
+Publishing an already-published local game keeps the same slug, uploads a fresh asset set, switches the manifest only after upload completes, then cleans old assets best-effort.
 
 ## Remote edit flow
-
-Opening the Private Edit Link:
 
 ```text
 /setup.html?edit=:slug#token=:editToken
 ↓
-Fetch public game metadata/images
+Fetch published game via reveal_get_game
 ↓
-Import into IndexedDB draft
+Import images into IndexedDB draft
 ↓
-Edit with the same v20.6 Image Editor
+Edit with the existing Image Editor
 ↓
 Publish update with X-Edit-Token
 ```
-
-The URL fragment is used for the private token so it is not sent as part of the normal HTTP request URL.
 
 ## Image Editor retained from v20.6
 
@@ -158,35 +136,7 @@ The URL fragment is used for the private token so it is not sent as part of the 
 - Pan / zoom / pinch / wheel
 - Non-destructive source image storage
 - Re-edit after reload
-- WebP image pipeline and size guards
-
-Only the final cropped `imageBlob` is uploaded as the public R2 asset.
-
-## Cloudflare deployment
-
-Workflow: `.github/workflows/cloudflare-v21.yml`
-
-Required GitHub Actions values:
-
-```text
-Secrets
-- CLOUDFLARE_API_TOKEN
-- CLOUDFLARE_ACCOUNT_ID
-```
-
-Workflow does:
-
-```text
-Verify credentials
-↓
-Apply D1 migrations remotely
-↓
-Deploy reveal-game-share-api Worker
-```
-
-### Current release blocker
-
-The v21 application code and frontend CI pass, but Cloudflare deployment is intentionally a release blocker until those repository secrets exist. Do not merge v21 to `main` while the Cloudflare workflow is red or live `/api/share/v2/health` is not 200.
+- WebP/image size guards
 
 ## Automated QA
 
@@ -198,15 +148,13 @@ npm test
 
 Coverage includes:
 
-- v20.6 Setup / Image Editor / Save / Reload / Player regression
-- Publish UI state
-- Publish request contract
+- Setup / Image Editor / Save / Reload / Player regression
+- Supabase share health
+- Draft → Storage upload → published manifest contract
 - Public shared-game loading
 - `/game/:slug` frontend route
 - Remote edit import
 - Share modal accessibility/focus behavior
-
-GitHub CI on the latest v21 branch must be green before promotion.
 
 ## v21 Release Gate
 
@@ -215,22 +163,10 @@ All must pass:
 1. `npm run check` PASS
 2. Playwright PASS
 3. GitHub CI PASS
-4. Cloudflare v21 workflow PASS
-5. D1 migration 0004 applied remotely
-6. `reveal-game-share-api` deployed
-7. Same-origin `/api/share/v2/health` → 200
-8. Publish a real game → returns slug/edit token
-9. Public `/game/:slug` opens on a clean browser/device
-10. Public images load from R2 through API
-11. Private edit link imports and updates the same slug
-12. Vercel Preview READY
-13. Fast-forward branch → `main`
-14. Production `/`, `/setup.html`, `/game/:slug` and API health PASS
-15. CI on `main` PASS
-
-## Source of Truth
-
-- `main` = current Production Source of Truth
-- `v21-shareable-game` = v21 release candidate until all gates pass
-- Vercel auto-deploys Git refs
-- Never mark v21 COMPLETE based only on Vercel `READY`; Cloudflare + live share E2E must also pass
+4. Supabase `reveal_share_health()` PASS
+5. Real publish creates `reveal_games` row
+6. Real publish uploads images to `reveal-game-assets`
+7. `/game/:slug` loads from a second session/device
+8. Private edit link can update the same slug
+9. Vercel Preview live QA PASS
+10. Only then promote v21 to Production
