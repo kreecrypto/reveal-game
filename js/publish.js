@@ -9,7 +9,6 @@
   const shareModal=$('[data-ui="share-modal"]');
   const shareInput=$('[data-ui="share-link"]');
   const editInput=$('[data-ui="edit-link"]');
-  const publishState=$('[data-ui="publish-state"]');
   const saveButton=$('[data-action="save"]');
   const appMain=$('[data-ui="main"]');
 
@@ -28,16 +27,16 @@
   };
 
   const errorText=code=>({
-    save_failed:'เก็บเกมในเครื่องไม่สำเร็จ ลองเช็กข้อมูลให้ครบก่อน',
+    save_failed:'บันทึกไม่สำเร็จ',
     game_empty:'ยังไม่มีเกมให้แชร์',
-    image_missing:'มีข้อที่รูปหาย ลองเลือกรูปใหม่',
+    image_missing:'มีข้อที่รูปหาย',
     invalid_edit_token:'ลิงก์แก้ไขไม่ถูกต้อง',
-    edit_token_required:'ไม่เจอกุญแจแก้เกม',
-    game_not_found:'หาเกมที่แชร์นี้ไม่เจอ',
-    image_too_large:'มีรูปใหญ่เกินไป ลองจัดรูปใหม่',
-    images_too_large:'รูปทั้งหมดใหญ่เกินไป ลองลดขนาดลงนิดนึง',
-    backend_unavailable:'ระบบแชร์ยังไม่พร้อม ลองใหม่อีกที'
-  }[code]||'แชร์ไม่สำเร็จ ลองใหม่อีกที');
+    edit_token_required:'ลิงก์แก้ไขไม่ถูกต้อง',
+    game_not_found:'หาเกมนี้ไม่เจอ',
+    image_too_large:'มีรูปใหญ่เกินไป',
+    images_too_large:'รูปทั้งหมดใหญ่เกินไป',
+    backend_unavailable:'แชร์ยังไม่พร้อม'
+  }[code]||'แชร์ไม่สำเร็จ');
 
   const waitForFreshSave=async()=>{
     const before=await RevealGameStore.getActive();
@@ -81,8 +80,7 @@
     if(publishButton.disabled)return;
     publishButton.disabled=true;
     const oldText=publishButton.textContent;
-    publishButton.textContent='กำลังแชร์เกม...';
-    publishState.textContent='กำลังเก็บ Draft ก่อน แล้วค่อยเผยแพร่';
+    publishButton.textContent='กำลังแชร์...';
     try{
       const game=await waitForFreshSave();
       const meta=readMeta();
@@ -92,11 +90,11 @@
       const next={slug:result.slug||meta?.slug,editToken:result.editToken||meta?.editToken};
       if(!next.slug||!next.editToken)throw new Error('backend_unavailable');
       writeMeta(next);
-      publishState.textContent=`เผยแพร่แล้ว · ${game.questions.length} ข้อ`;
+      setCloud('แชร์แล้ว',true);
       openShare(next.slug,next.editToken);
     }catch(error){
       console.error(error);
-      publishState.textContent=errorText(error.code||error.message);
+      cloudStatus.textContent=errorText(error.code||error.message);
     }finally{
       publishButton.textContent=oldText;
       try{await RevealShareApi.health();publishButton.disabled=false}catch{publishButton.disabled=true}
@@ -107,11 +105,11 @@
     const slug=new URLSearchParams(location.search).get('edit');
     if(!slug)return;
     const token=hashToken();
-    if(!token){publishState.textContent='ลิงก์แก้เกมนี้ไม่มีกุญแจแก้ไข';return}
+    if(!token){setCloud('ลิงก์แก้ไขไม่ถูกต้อง',false);return}
     writeMeta({slug,editToken:token});
     const importKey=`${IMPORT_PREFIX}${slug}`;
     if(sessionStorage.getItem(importKey)==='1')return;
-    publishState.textContent='กำลังดึงเกมที่แชร์ลงเครื่องนี้...';
+    setCloud('กำลังโหลดเกม...',false);
     try{
       const remote=await RevealShareApi.fetchGame(slug);
       const questions=[];
@@ -128,7 +126,7 @@
       sessionStorage.setItem(importKey,'1');
       location.reload();
     }catch(error){
-      console.error(error);publishState.textContent=errorText(error.code||error.message);
+      console.error(error);setCloud(errorText(error.code||error.message),false);
     }
   };
 
@@ -154,13 +152,10 @@
     try{
       await importRemoteEdit();
       await RevealShareApi.health();
-      setCloud('Share พร้อม · Supabase DB + Storage',true);
-      const meta=readMeta();
-      if(meta?.slug)publishState.textContent=`เกมนี้เคยเผยแพร่แล้ว · ${meta.slug}`;
+      setCloud('พร้อมแชร์',true);
     }catch(error){
       console.warn('share backend unavailable',error);
-      setCloud('ระบบแชร์ยังไม่เชื่อม · Draft ในเครื่องยังใช้ได้',false);
-      publishState.textContent='ตอนนี้ยังเก็บและเล่นในเครื่องได้ตามปกติ';
+      setCloud('แชร์ยังไม่พร้อม',false);
     }
   })();
 })();
