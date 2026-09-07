@@ -8,7 +8,11 @@
   const shareSlug=params.get('share');
   const state={questions:[],title:'Demo 10 ข้อ',index:0,opened:new Set(),revealed:false,objectUrls:[],mode:shareSlug?'shared':'local'};
 
-  const showScreen=name=>{$$('.screen').forEach(x=>x.classList.toggle('is-active',x.dataset.screen===name));window.scrollTo(0,0)};
+  const showScreen=name=>{
+    $$('.screen').forEach(x=>x.classList.toggle('is-active',x.dataset.screen===name));
+    document.body.dataset.screen=name;
+    window.scrollTo(0,0);
+  };
   const normalize=data=>{
     if(!Array.isArray(data))throw new Error('ข้อมูลคำถามไม่ถูกต้อง');
     return data.filter(x=>x&&x.image&&String(x.answer??'').trim()).map((x,i)=>({id:x.id??i+1,question:String(x.question||DEFAULT_QUESTION),answer:String(x.answer).trim(),image:String(x.image),alt:String(x.alt||`ภาพคำถาม ${i+1}`)}));
@@ -86,14 +90,21 @@
 
   const renderHome=()=>{
     ui('game-title').textContent=`${state.title} · ${state.questions.length} ข้อ`;
-    ui('counter').textContent=`1/${state.questions.length}`;
     document.body.dataset.gameMode=state.mode;
   };
   const render=()=>{
     const item=state.questions[state.index],total=state.questions.length;
-    ui('counter').textContent=`${state.index+1}/${total}`;ui('round-number').textContent=String(state.index+1).padStart(2,'0');ui('round-label').textContent=`ข้อที่ ${state.index+1} / ${total}`;ui('progress').style.width=`${((state.index+1)/total)*100}%`;
-    ui('question').textContent=item.question;ui('image').src=item.image;ui('image').alt=item.alt;ui('answer').textContent=state.revealed?item.answer:'ยังไม่เฉลย';ui('done-label').textContent=`ครบ ${total} ข้อแล้ว`;
-    renderTiles();action('reveal').disabled=state.revealed;action('next').classList.toggle('is-hidden',!state.revealed);action('next').textContent=state.index===total-1?'จบเกม':'ข้อต่อไป';
+    ui('counter').textContent=`${state.index+1}/${total}`;
+    ui('progress').style.width=`${((state.index+1)/total)*100}%`;
+    ui('question').textContent=item.question;
+    ui('image').src=item.image;
+    ui('image').alt=item.alt;
+    ui('answer').textContent=state.revealed?item.answer:'';
+    ui('answer-panel').classList.toggle('is-hidden',!state.revealed);
+    renderTiles();
+    action('reveal').classList.toggle('is-hidden',state.revealed);
+    action('next').classList.toggle('is-hidden',!state.revealed);
+    action('next').textContent=state.index===total-1?'จบเกม':'ข้อต่อไป';
   };
 
   const resetRound=()=>{state.opened=new Set();state.revealed=false};
@@ -114,7 +125,7 @@
 
   const init=async()=>{
     try{
-      await loadQuestions();ensureTiles();renderHome();
+      await loadQuestions();ensureTiles();renderHome();showScreen('home');
       action('start').addEventListener('click',start);action('reveal').addEventListener('click',reveal);action('next').addEventListener('click',next);action('restart').addEventListener('click',start);
       $$('[data-action="home"]').forEach(btn=>btn.addEventListener('click',e=>{e.preventDefault();renderHome();showScreen('home')}));
       if(params.get('custom')==='1')start();
