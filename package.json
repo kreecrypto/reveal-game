@@ -1,10 +1,10 @@
 {
   "name": "reveal-game",
-  "version": "20.6.0",
+  "version": "21.0.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "node --check js/storage.js && node --check js/setup.js && node --check js/game.js",
+    "check": "node --check js/storage.js && node --check js/setup.js && node --check js/game.js && node --check js/share-api.js && node --check js/publish.js && node --check cloudflare-v21/src/index.js",
     "test": "playwright test",
     "test:smoke": "playwright test --project=chromium"
   },
