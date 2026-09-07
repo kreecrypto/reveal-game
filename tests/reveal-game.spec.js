@@ -17,6 +17,10 @@ async function fillFirstQuestion(page,{answer='แมวเทสต์'}={}){
   await expect(page.locator('[data-check="answer"]').first()).toContainText('✓');
 }
 
+async function mockShareHealth(page){
+  await page.route('**/api/share/v2/health',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,version:'v21'})}));
+}
+
 test('setup saves, reloads, and plays the custom game',async({page})=>{
   await page.goto('/setup.html');
   await page.locator('#game-title').fill('เกมทดสอบ');
@@ -98,4 +102,39 @@ test('removed question can be undone before save',async({page})=>{
   await expect(page.locator('[data-item]')).toHaveCount(1);
   await page.getByRole('button',{name:'เอาคืน'}).click();
   await expect(page.locator('[data-item]')).toHaveCount(2);
+});
+
+test('v21 publishes a saved game and returns public plus private links',async({page})=>{
+  await mockShareHealth(page);
+  await page.route('**/api/share/v2/games',async route=>{
+    expect(route.request().method()).toBe('POST');
+    await route.fulfill({status:201,contentType:'application/json',body:JSON.stringify({ok:true,slug:'shareabc',editToken:'secret-token',questionCount:1})});
+  });
+
+  await page.goto('/setup.html');
+  await expect(page.locator('[data-ui="cloud-status"]')).toContainText('Cloud พร้อมแชร์');
+  await page.locator('#game-title').fill('เกมแชร์เทสต์');
+  await fillFirstQuestion(page,{answer:'แมวแชร์'});
+  await page.getByRole('button',{name:'เผยแพร่เกม'}).click();
+
+  await expect(page.locator('[data-ui="share-modal"]')).not.toHaveClass(/is-hidden/);
+  await expect(page.locator('[data-ui="share-link"]')).toHaveValue(/\/game\/shareabc$/);
+  await expect(page.locator('[data-ui="edit-link"]')).toHaveValue(/setup\.html\?edit=shareabc#token=secret-token$/);
+});
+
+test('v21 public shared game loads the cloud payload before local draft',async({page})=>{
+  await page.route('**/api/share/v2/games/shareabc',route=>route.fulfill({
+    status:200,contentType:'application/json',body:JSON.stringify({
+      game:{slug:'shareabc',title:'เกมจาก Cloud'},
+      questions:[{id:1,question:'นี่อะไร?',answer:'แมว Cloud',asset:'games%2Fdemo%2Fcat.webp'}]
+    })
+  }));
+  await page.route('**/api/share/v2/assets/**',route=>route.fulfill({status:200,contentType:'image/png',body:tinyPng}));
+
+  await page.goto('/?share=shareabc');
+  await expect(page.locator('[data-ui="game-title"]')).toContainText('เกมจาก Cloud');
+  await page.getByRole('button',{name:'ลุยเลย'}).click();
+  await expect(page.locator('[data-screen="game"]')).toHaveClass(/is-active/);
+  await page.getByRole('button',{name:'ไม่ไหวละ ดูเฉลย'}).click();
+  await expect(page.locator('[data-ui="answer"]')).toHaveText('แมว Cloud');
 });
