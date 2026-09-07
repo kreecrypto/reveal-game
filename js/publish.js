@@ -8,7 +8,6 @@
   const cloudStatus=$('[data-ui="cloud-status"]');
   const shareModal=$('[data-ui="share-modal"]');
   const shareInput=$('[data-ui="share-link"]');
-  const editInput=$('[data-ui="edit-link"]');
   const nativeShareButton=$('[data-action="native-share"]');
   const saveButton=$('[data-action="save"]');
   const appMain=$('[data-ui="main"]');
@@ -31,8 +30,8 @@
     save_failed:'บันทึกไม่สำเร็จ',
     game_empty:'ยังไม่มีเกมให้แชร์',
     image_missing:'มีข้อที่รูปหาย',
-    invalid_edit_token:'ลิงก์แก้ไขไม่ถูกต้อง',
-    edit_token_required:'ลิงก์แก้ไขไม่ถูกต้อง',
+    invalid_edit_token:'สิทธิ์แก้ไขไม่ถูกต้อง',
+    edit_token_required:'สิทธิ์แก้ไขไม่ถูกต้อง',
     game_not_found:'หาเกมนี้ไม่เจอ',
     image_too_large:'มีรูปใหญ่เกินไป',
     images_too_large:'รูปทั้งหมดใหญ่เกินไป',
@@ -53,10 +52,8 @@
   };
 
   const shareFocusables=()=>$$('button:not([disabled]),input:not([disabled]),a[href],[tabindex]:not([tabindex="-1"])',shareModal).filter(el=>!el.classList.contains('is-hidden'));
-  const openShare=(slug,editToken)=>{
-    const publicUrl=`${location.origin}/game/${encodeURIComponent(slug)}`;
-    const editUrl=`${location.origin}/setup.html?edit=${encodeURIComponent(slug)}#token=${encodeURIComponent(editToken)}`;
-    shareInput.value=publicUrl;editInput.value=editUrl;
+  const openShare=slug=>{
+    shareInput.value=`${location.origin}/game/${encodeURIComponent(slug)}`;
     nativeShareButton?.classList.toggle('is-hidden',!navigator.share);
     shareModal.classList.remove('is-hidden');
     document.body.classList.add('modal-open');
@@ -102,7 +99,7 @@
       if(!next.slug||!next.editToken)throw new Error('backend_unavailable');
       writeMeta(next);
       setCloud('แชร์แล้ว',true);
-      openShare(next.slug,next.editToken);
+      openShare(next.slug);
     }catch(error){
       console.error(error);
       cloudStatus.textContent=errorText(error.code||error.message);
@@ -116,7 +113,7 @@
     const slug=new URLSearchParams(location.search).get('edit');
     if(!slug)return;
     const token=hashToken();
-    if(!token){setCloud('ลิงก์แก้ไขไม่ถูกต้อง',false);return}
+    if(!token){setCloud('สิทธิ์แก้ไขไม่ถูกต้อง',false);return}
     writeMeta({slug,editToken:token});
     const importKey=`${IMPORT_PREFIX}${slug}`;
     if(sessionStorage.getItem(importKey)==='1')return;
@@ -145,7 +142,6 @@
   $$('[data-action="close-share"]').forEach(btn=>btn.addEventListener('click',closeShare));
   shareModal?.addEventListener('click',e=>{if(e.target===shareModal)closeShare()});
   $('[data-action="copy-share"]')?.addEventListener('click',e=>copyField(shareInput,e.currentTarget));
-  $('[data-action="copy-edit"]')?.addEventListener('click',e=>copyField(editInput,e.currentTarget));
   nativeShareButton?.addEventListener('click',nativeShare);
   $('[data-action="open-shared"]')?.addEventListener('click',()=>{if(shareInput.value)location.href=shareInput.value});
   $('[data-action="confirm-clear"]')?.addEventListener('click',()=>{clearMeta();clearImportFlags()});
