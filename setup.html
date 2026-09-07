@@ -23,51 +23,45 @@
     </header>
 
     <section class="setup-step panel">
-      <div class="step-kicker"><span>1</span> ตั้งชื่อก่อน เดี๋ยวจำไม่ได้</div>
-      <h1>เกมนี้จะชื่ออะไรดี?</h1>
-      <p>เอาสั้น ๆ จำง่าย ๆ แบบ “ทายดิ นี่ตัวอะไร”</p>
-      <input id="game-title" class="text-input text-input-lg" maxlength="80" placeholder="พิมพ์ชื่อเกมตรงนี้" value="เกมของฉัน">
+      <h1>ชื่อเกม</h1>
+      <input id="game-title" class="text-input text-input-lg" maxlength="80" placeholder="พิมพ์ชื่อเกม" value="เกมของฉัน">
     </section>
 
     <section class="setup-section-head">
       <div>
-        <div class="step-kicker"><span>2</span> ใส่รูป + เฉลย</div>
-        <h2>ทำแต่ละข้อให้พร้อม แล้วค่อยลุย</h2>
-        <p>1 ข้อ = 1 รูป + 1 คำเฉลย แค่นี้เอง</p>
+        <h2>รูป + เฉลย</h2>
       </div>
-      <button class="button button-ghost" type="button" data-action="add">+ เพิ่มอีกข้อ</button>
+      <button class="button button-ghost" type="button" data-action="add">+ เพิ่มข้อ</button>
     </section>
 
-    <section class="readiness-card" aria-live="polite">
+    <section class="readiness-card" aria-live="polite" hidden>
       <div>
-        <span class="readiness-label">เช็กของก่อนลุย</span>
-        <strong data-ui="readiness-text">ยังขาดอีกนิด</strong>
+        <span class="readiness-label">สถานะ</span>
+        <strong data-ui="readiness-text">ยังไม่ครบ</strong>
       </div>
       <div class="readiness-progress"><span data-ui="readiness-bar"></span></div>
-      <small data-ui="readiness-detail">ใส่รูปกับเฉลยให้ครบก่อนนะ</small>
+      <small data-ui="readiness-detail">ใส่รูปกับเฉลยให้ครบ</small>
     </section>
 
     <section data-ui="items" class="setup-list" aria-live="polite"></section>
 
     <section class="publish-card panel" aria-live="polite">
       <div class="publish-copy">
-        <div class="step-kicker"><span>3</span> ส่งลิงก์ให้เพื่อนเล่น</div>
-        <h2>พร้อมแล้วก็โยนขึ้น Cloud</h2>
-        <p class="cloud-status" data-ui="cloud-status">กำลังเช็ก Cloud...</p>
-        <small class="publish-state" data-ui="publish-state">Draft ยังอยู่ในเครื่องเหมือนเดิม</small>
+        <h2>แชร์เกม</h2>
+        <p class="cloud-status" data-ui="cloud-status">กำลังเช็ก...</p>
       </div>
-      <button class="button button-primary" type="button" data-action="publish" disabled>เผยแพร่เกม</button>
+      <button class="button button-primary" type="button" data-action="publish" disabled>แชร์เกม</button>
     </section>
 
     <section class="setup-footer panel">
       <div>
-        <span class="save-status" data-ui="status">กดเก็บไว้ก่อน เดี๋ยวหายแล้วจะหาว่าไม่เตือน</span>
-        <strong data-ui="footer-summary">ยังไม่มีข้อพร้อมลุย</strong>
+        <span class="save-status" data-ui="status">ยังไม่ได้บันทึก</span>
+        <strong data-ui="footer-summary" hidden>ยังไม่มีข้อพร้อมลุย</strong>
       </div>
       <div class="footer-actions">
         <button class="button button-ghost" type="button" data-action="clear">เริ่มใหม่</button>
-        <button class="button button-secondary" type="button" data-action="save">เก็บไว้ก่อน</button>
-        <button class="button button-primary" type="button" data-action="play">ลุยเลย</button>
+        <button class="button button-secondary" type="button" data-action="save">บันทึก</button>
+        <button class="button button-primary" type="button" data-action="play">เล่น</button>
       </div>
     </section>
   </main>
@@ -77,7 +71,7 @@
       <div class="question-card-head">
         <div class="question-no">01</div>
         <div>
-          <strong>ข้อที่ <span data-field="number">1</span></strong>
+          <strong hidden>ข้อที่ <span data-field="number">1</span></strong>
           <span class="item-state" data-field="state">ยังไม่ครบ</span>
         </div>
         <button class="icon-button danger" type="button" data-action="remove-item" aria-label="ลบข้อนี้">×</button>
@@ -85,14 +79,12 @@
 
       <div class="question-grid">
         <div class="upload-block">
-          <div class="mini-label">รูปภาพ</div>
           <button class="upload-zone" type="button" data-field="upload-zone" aria-label="เลือกรูปหรือแก้ไขรูป">
             <img data-field="preview" alt="ตัวอย่างรูป">
             <span class="upload-empty" data-field="upload-empty">
-              <strong>โยนรูปมา</strong>
-              <small>แตะแล้วเลือกรูปจากเครื่อง</small>
+              <strong>เลือกรูป</strong>
             </span>
-            <span class="upload-edit-hint" data-field="edit-hint">✦ แตะเพื่อจัดรูป</span>
+            <span class="upload-edit-hint" data-field="edit-hint">จัดรูป</span>
           </button>
           <input data-field="file" type="file" accept="image/*" hidden>
           <div class="image-actions is-hidden" data-field="image-actions">
@@ -102,11 +94,11 @@
         </div>
 
         <div class="question-fields">
-          <label class="field-label">คำเฉลย <span>ต้องมี</span></label>
-          <input class="text-input answer-input" data-field="answer" maxlength="120" placeholder="เช่น แมว... หรือจะกวนกว่านี้ก็ได้">
-          <label class="field-label">คำถาม <span class="optional">แก้ได้ถ้าอยาก</span></label>
+          <label class="field-label">เฉลย</label>
+          <input class="text-input answer-input" data-field="answer" maxlength="120" placeholder="พิมพ์คำเฉลย">
+          <label class="field-label">คำถาม</label>
           <input class="text-input" data-field="question" maxlength="120" value="นี่มันตัวอะไรเนี่ย?">
-          <div class="item-checklist" data-field="checklist">
+          <div class="item-checklist" data-field="checklist" hidden>
             <span data-check="image">○ มีรูป</span>
             <span data-check="answer">○ มีเฉลย</span>
           </div>
@@ -123,11 +115,11 @@
   <div class="game-modal-backdrop is-hidden" data-ui="clear-modal">
     <section class="game-modal" role="dialog" aria-modal="true" aria-labelledby="clear-modal-title" tabindex="-1">
       <div class="game-modal-icon" aria-hidden="true">?</div>
-      <h2 id="clear-modal-title">จะเริ่มใหม่จริงดิ?</h2>
-      <p>เกมที่เก็บไว้ในเครื่องนี้จะโดนล้างนะ กู้กลับไม่ได้รอบนี้</p>
+      <h2 id="clear-modal-title">เริ่มใหม่?</h2>
+      <p>ข้อมูลเกมในเครื่องจะถูกล้าง</p>
       <div class="game-modal-actions">
-        <button class="button button-ghost" type="button" data-action="cancel-clear">ไม่ล้างละ</button>
-        <button class="button button-secondary" type="button" data-action="confirm-clear">ล้างเลย</button>
+        <button class="button button-ghost" type="button" data-action="cancel-clear">ยกเลิก</button>
+        <button class="button button-secondary" type="button" data-action="confirm-clear">ล้างเกม</button>
       </div>
     </section>
   </div>
@@ -135,22 +127,20 @@
   <div class="game-modal-backdrop is-hidden" data-ui="leave-modal">
     <section class="game-modal" role="dialog" aria-modal="true" aria-labelledby="leave-modal-title" aria-describedby="leave-modal-desc" tabindex="-1">
       <div class="game-modal-icon" aria-hidden="true">!</div>
-      <h2 id="leave-modal-title">ยังไม่ได้เก็บนะ จะไปจริงดิ?</h2>
-      <p id="leave-modal-desc">ของที่เพิ่งแก้จะหาย ถ้ายังอยากได้อยู่ก็กดอยู่ต่อแล้วเก็บก่อน</p>
+      <h2 id="leave-modal-title">ยังไม่ได้บันทึก</h2>
+      <p id="leave-modal-desc">ออกตอนนี้ การแก้ไขล่าสุดจะหาย</p>
       <div class="game-modal-actions">
         <button class="button button-ghost" type="button" data-action="cancel-leave">อยู่ต่อ</button>
-        <button class="button button-secondary" type="button" data-action="discard-leave">ไปเลย ไม่เก็บ</button>
+        <button class="button button-secondary" type="button" data-action="discard-leave">ออกโดยไม่บันทึก</button>
       </div>
     </section>
   </div>
 
   <div class="game-modal-backdrop image-editor-backdrop is-hidden" data-ui="image-editor-modal">
-    <section class="game-modal image-editor-modal" role="dialog" aria-modal="true" aria-labelledby="image-editor-title" aria-describedby="image-editor-desc" tabindex="-1">
+    <section class="game-modal image-editor-modal" role="dialog" aria-modal="true" aria-labelledby="image-editor-title" tabindex="-1">
       <div class="image-editor-head">
         <div>
-          <span class="image-editor-kicker">IMAGE EDITOR · 1:1</span>
-          <h2 id="image-editor-title">จัดรูปให้เป๊ะก่อน</h2>
-          <p id="image-editor-desc">ลากรูปเพื่อจัดตำแหน่ง แล้วซูมให้พอดีกับบอร์ด 3×3</p>
+          <h2 id="image-editor-title">จัดรูป</h2>
         </div>
         <button class="icon-button" type="button" data-action="cancel-image-edit" aria-label="ปิดตัวแก้ไขรูป">×</button>
       </div>
@@ -165,7 +155,7 @@
         <div class="image-editor-controls">
           <div class="zoom-control">
             <div class="zoom-control-head">
-              <label for="image-zoom">ย่อ / ขยาย</label>
+              <label for="image-zoom">ซูม</label>
               <output for="image-zoom" data-ui="zoom-value">1.00×</output>
             </div>
             <div class="zoom-row">
@@ -174,13 +164,13 @@
               <button class="zoom-step" type="button" data-action="zoom-in" aria-label="ขยายรูป">+</button>
             </div>
           </div>
-          <div class="editor-tip">ลากด้วยนิ้วเดียวเพื่อเลื่อน · ใช้สองนิ้วเพื่อซูมได้</div>
-          <button class="button button-ghost editor-reset" type="button" data-action="reset-image-edit">จัดกลางใหม่</button>
+          <div class="editor-tip">ลากเพื่อเลื่อน · สองนิ้วเพื่อซูม</div>
+          <button class="button button-ghost editor-reset" type="button" data-action="reset-image-edit">จัดกลาง</button>
         </div>
       </div>
 
       <div class="game-modal-actions image-editor-actions">
-        <button class="button button-ghost" type="button" data-action="cancel-image-edit">ไม่เอาละ</button>
+        <button class="button button-ghost" type="button" data-action="cancel-image-edit">ยกเลิก</button>
         <button class="button button-primary" type="button" data-action="apply-image-edit">ใช้รูปนี้</button>
       </div>
     </section>
@@ -190,15 +180,13 @@
     <section class="game-modal share-modal" role="dialog" aria-modal="true" aria-labelledby="share-modal-title" tabindex="-1">
       <div class="image-editor-head">
         <div>
-          <span class="image-editor-kicker">PUBLISHED · v21</span>
-          <h2 id="share-modal-title">เกมขึ้น Cloud แล้ว 🎉</h2>
-          <p>ส่งลิงก์แรกให้คนอื่นเล่น ส่วนลิงก์แก้เก็บไว้กับตัว อย่าส่งมั่ว</p>
+          <h2 id="share-modal-title">แชร์เกม</h2>
         </div>
         <button class="icon-button" type="button" data-action="close-share" aria-label="ปิดหน้าต่างแชร์">×</button>
       </div>
 
       <div class="share-field">
-        <label for="share-link">ลิงก์ให้คนอื่นเล่น</label>
+        <label for="share-link">ลิงก์เล่น</label>
         <div class="share-field-row">
           <input id="share-link" data-ui="share-link" readonly>
           <button class="button button-secondary" type="button" data-action="copy-share">คัดลอก</button>
@@ -206,22 +194,20 @@
       </div>
 
       <div class="share-field">
-        <label for="edit-link">ลิงก์กลับมาแก้เกม — เป็นความลับ</label>
+        <label for="edit-link">ลิงก์แก้ไข · ห้ามแชร์</label>
         <div class="share-field-row">
           <input id="edit-link" data-ui="edit-link" readonly>
           <button class="button button-ghost" type="button" data-action="copy-edit">คัดลอก</button>
         </div>
       </div>
 
-      <p class="share-note">ลิงก์แก้เกมมี Private Edit Token อยู่ในส่วนหลัง # ของ URL คนที่มีลิงก์นี้สามารถ Publish ทับเกมเดิมได้</p>
       <div class="share-actions">
-        <button class="button button-primary" type="button" data-action="open-shared">ลองเปิดลิงก์เกม</button>
-        <button class="button button-ghost" type="button" data-action="close-share">ปิดก่อน</button>
+        <button class="button button-primary" type="button" data-action="open-shared">เปิดเกม</button>
+        <button class="button button-ghost" type="button" data-action="close-share">ปิด</button>
       </div>
     </section>
   </div>
 
-  <div class="version-badge">v21.0</div>
   <script src="/js/storage.js"></script>
   <script src="/js/share-api.js" defer></script>
   <script src="/js/setup.js" defer></script>
