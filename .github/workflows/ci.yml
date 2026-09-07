@@ -25,6 +25,9 @@ jobs:
       - name: Syntax check
         run: npm run check
 
+      - name: Wrangler v21 dry run
+        run: npx wrangler deploy --dry-run --config cloudflare/wrangler.jsonc
+
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 
