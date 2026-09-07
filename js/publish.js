@@ -8,7 +8,6 @@
   const cloudStatus=$('[data-ui="cloud-status"]');
   const shareModal=$('[data-ui="share-modal"]');
   const shareInput=$('[data-ui="share-link"]');
-  const nativeShareButton=$('[data-action="native-share"]');
   const saveButton=$('[data-action="save"]');
   const appMain=$('[data-ui="main"]');
 
@@ -35,8 +34,8 @@
     game_not_found:'หาเกมนี้ไม่เจอ',
     image_too_large:'มีรูปใหญ่เกินไป',
     images_too_large:'รูปทั้งหมดใหญ่เกินไป',
-    backend_unavailable:'แชร์ยังไม่พร้อม'
-  }[code]||'แชร์ไม่สำเร็จ');
+    backend_unavailable:'สร้างลิงก์ยังไม่พร้อม'
+  }[code]||'สร้างลิงก์ไม่สำเร็จ');
 
   const waitForFreshSave=async()=>{
     const before=await RevealGameStore.getActive();
@@ -52,9 +51,13 @@
   };
 
   const shareFocusables=()=>$$('button:not([disabled]),input:not([disabled]),a[href],[tabindex]:not([tabindex="-1"])',shareModal).filter(el=>!el.classList.contains('is-hidden'));
+  const buildShareUrl=slug=>{
+    const url=new URL('/',location.origin);
+    url.searchParams.set('share',String(slug||''));
+    return url.toString();
+  };
   const openShare=slug=>{
-    shareInput.value=`${location.origin}/game/${encodeURIComponent(slug)}`;
-    nativeShareButton?.classList.toggle('is-hidden',!navigator.share);
+    shareInput.value=buildShareUrl(slug);
     shareModal.classList.remove('is-hidden');
     document.body.classList.add('modal-open');
     appMain.inert=true;appMain.setAttribute('aria-hidden','true');
@@ -75,20 +78,11 @@
     const old=button.textContent;button.textContent='คัดลอกแล้ว ✓';setTimeout(()=>button.textContent=old,1400);
   };
 
-  const nativeShare=async()=>{
-    if(!navigator.share||!shareInput.value)return;
-    try{
-      await navigator.share({title:$('#game-title')?.value.trim()||'เปิดป้ายดิ',url:shareInput.value});
-    }catch(error){
-      if(error?.name!=='AbortError')console.warn('native share failed',error);
-    }
-  };
-
   const publishGame=async()=>{
     if(publishButton.disabled)return;
     publishButton.disabled=true;
     const oldText=publishButton.textContent;
-    publishButton.textContent='กำลังแชร์...';
+    publishButton.textContent='กำลังสร้างลิงก์...';
     try{
       const game=await waitForFreshSave();
       const meta=readMeta();
@@ -98,7 +92,7 @@
       const next={slug:result.slug||meta?.slug,editToken:result.editToken||meta?.editToken};
       if(!next.slug||!next.editToken)throw new Error('backend_unavailable');
       writeMeta(next);
-      setCloud('แชร์แล้ว',true);
+      setCloud('ลิงก์พร้อมแล้ว',true);
       openShare(next.slug);
     }catch(error){
       console.error(error);
@@ -142,7 +136,6 @@
   $$('[data-action="close-share"]').forEach(btn=>btn.addEventListener('click',closeShare));
   shareModal?.addEventListener('click',e=>{if(e.target===shareModal)closeShare()});
   $('[data-action="copy-share"]')?.addEventListener('click',e=>copyField(shareInput,e.currentTarget));
-  nativeShareButton?.addEventListener('click',nativeShare);
   $('[data-action="open-shared"]')?.addEventListener('click',()=>{if(shareInput.value)location.href=shareInput.value});
   $('[data-action="confirm-clear"]')?.addEventListener('click',()=>{clearMeta();clearImportFlags()});
   document.addEventListener('keydown',e=>{
@@ -160,10 +153,10 @@
     try{
       await importRemoteEdit();
       await RevealShareApi.health();
-      setCloud('พร้อมแชร์',true);
+      setCloud('พร้อมสร้างลิงก์',true);
     }catch(error){
       console.warn('share backend unavailable',error);
-      setCloud('แชร์ยังไม่พร้อม',false);
+      setCloud('สร้างลิงก์ยังไม่พร้อม',false);
     }
   })();
 })();
