@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const $=(s,r=document)=>r.querySelector(s);
+  const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
   const META_KEY='reveal-game-publish-v21';
   const IMPORT_PREFIX='reveal-game-imported:';
   const publishButton=$('[data-action="publish"]');
@@ -11,7 +11,7 @@
   const editInput=$('[data-ui="edit-link"]');
   const publishState=$('[data-ui="publish-state"]');
   const saveButton=$('[data-action="save"]');
-  const status=$('[data-ui="status"]');
+  const appMain=$('[data-ui="main"]');
 
   if(!publishButton||!window.RevealShareApi||!window.RevealGameStore)return;
 
@@ -19,11 +19,8 @@
   const readMeta=()=>{try{return JSON.parse(localStorage.getItem(META_KEY)||'null')}catch{return null}};
   const writeMeta=value=>localStorage.setItem(META_KEY,JSON.stringify(value));
   const clearMeta=()=>localStorage.removeItem(META_KEY);
-  const hashToken=()=>{
-    const raw=location.hash.replace(/^#/,'');
-    const params=new URLSearchParams(raw);
-    return params.get('token')||'';
-  };
+  const clearImportFlags=()=>{for(const key of Object.keys(sessionStorage)){if(key.startsWith(IMPORT_PREFIX))sessionStorage.removeItem(key)}};
+  const hashToken=()=>new URLSearchParams(location.hash.replace(/^#/,'')).get('token')||'';
   const setCloud=(message,ready=false)=>{
     cloudStatus.textContent=message;
     cloudStatus.classList.toggle('ready',ready);
@@ -54,18 +51,21 @@
     throw new Error('save_failed');
   };
 
+  const shareFocusables=()=>$$('button:not([disabled]),input:not([disabled]),a[href],[tabindex]:not([tabindex="-1"])',shareModal).filter(el=>!el.classList.contains('is-hidden'));
   const openShare=(slug,editToken)=>{
     const publicUrl=`${location.origin}/game/${encodeURIComponent(slug)}`;
     const editUrl=`${location.origin}/setup.html?edit=${encodeURIComponent(slug)}#token=${encodeURIComponent(editToken)}`;
     shareInput.value=publicUrl;editInput.value=editUrl;
     shareModal.classList.remove('is-hidden');
     document.body.classList.add('modal-open');
-    requestAnimationFrame(()=>shareModal.querySelector('button')?.focus());
+    appMain.inert=true;appMain.setAttribute('aria-hidden','true');
+    requestAnimationFrame(()=>shareFocusables()[0]?.focus());
   };
 
   const closeShare=()=>{
     shareModal.classList.add('is-hidden');
     document.body.classList.remove('modal-open');
+    appMain.inert=false;appMain.removeAttribute('aria-hidden');
     publishButton.focus();
   };
 
@@ -132,13 +132,22 @@
   };
 
   publishButton.addEventListener('click',publishGame);
-  $('[data-action="close-share"]')?.addEventListener('click',closeShare);
+  $$('[data-action="close-share"]').forEach(btn=>btn.addEventListener('click',closeShare));
   shareModal?.addEventListener('click',e=>{if(e.target===shareModal)closeShare()});
   $('[data-action="copy-share"]')?.addEventListener('click',e=>copyField(shareInput,e.currentTarget));
   $('[data-action="copy-edit"]')?.addEventListener('click',e=>copyField(editInput,e.currentTarget));
   $('[data-action="open-shared"]')?.addEventListener('click',()=>{if(shareInput.value)location.href=shareInput.value});
-  $('[data-action="confirm-clear"]')?.addEventListener('click',()=>{clearMeta();sessionStorage.clear()});
-  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!shareModal.classList.contains('is-hidden'))closeShare()});
+  $('[data-action="confirm-clear"]')?.addEventListener('click',()=>{clearMeta();clearImportFlags()});
+  document.addEventListener('keydown',e=>{
+    if(shareModal.classList.contains('is-hidden'))return;
+    if(e.key==='Escape'){e.preventDefault();closeShare();return}
+    if(e.key==='Tab'){
+      const items=shareFocusables();if(!items.length)return;
+      const first=items[0],last=items.at(-1);
+      if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}
+      else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}
+    }
+  });
 
   (async()=>{
     try{
