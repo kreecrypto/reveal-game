@@ -3,7 +3,8 @@
   "cleanUrls": true,
   "trailingSlash": false,
   "rewrites": [
-    {"source": "/game/:slug", "destination": "/?share=:slug"}
+    {"source": "/game/:slug", "destination": "/?share=:slug"},
+    {"source": "/api/share/v2/:path*", "destination": "/api/share-proxy?path=:path*"}
   ],
   "headers": [
     {
