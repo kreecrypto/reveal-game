@@ -4,7 +4,9 @@
   const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
   const ui=n=>$(`[data-ui="${n}"]`),action=n=>$(`[data-action="${n}"]`);
   const DEFAULT_QUESTION='นี่มันตัวอะไรเนี่ย?';
-  const state={questions:[],title:'Demo 10 ข้อ',index:0,opened:new Set(),revealed:false,objectUrls:[]};
+  const params=new URLSearchParams(location.search);
+  const shareSlug=params.get('share');
+  const state={questions:[],title:'Demo 10 ข้อ',index:0,opened:new Set(),revealed:false,objectUrls:[],mode:shareSlug?'shared':'local'};
 
   const showScreen=name=>{$$('.screen').forEach(x=>x.classList.toggle('is-active',x.dataset.screen===name));window.scrollTo(0,0)};
   const normalize=data=>{
@@ -26,7 +28,25 @@
     return questions;
   };
 
+  const fromSharedGame=payload=>{
+    const questions=normalize(payload?.questions||[]);
+    if(!questions.length)throw new Error('เกมที่แชร์นี้ยังไม่มีข้อให้เล่น');
+    state.title=String(payload?.game?.title||'เกมที่เพื่อนแชร์มา');
+    return questions;
+  };
+
   const loadQuestions=async()=>{
+    if(shareSlug){
+      if(!window.RevealShareApi)throw new Error('ระบบแชร์ยังไม่พร้อม');
+      try{
+        const remote=await RevealShareApi.fetchGame(shareSlug);
+        state.questions=fromSharedGame(remote);state.mode='shared';return;
+      }catch(e){
+        console.error('โหลดเกมแชร์ไม่สำเร็จ',e);
+        if(e?.code==='game_not_found')throw new Error('หาเกมจากลิงก์นี้ไม่เจอ อาจถูกลบหรือยังไม่เผยแพร่');
+        throw new Error('โหลดเกมจากลิงก์ไม่สำเร็จ ลองเปิดใหม่อีกที');
+      }
+    }
     try{
       const custom=await RevealGameStore.getActive(),customQuestions=fromCustomGame(custom);
       if(customQuestions.length){state.questions=customQuestions;return}
@@ -64,7 +84,11 @@
     });
   };
 
-  const renderHome=()=>{ui('game-title').textContent=`${state.title} · ${state.questions.length} ข้อ`;ui('counter').textContent=`1/${state.questions.length}`};
+  const renderHome=()=>{
+    ui('game-title').textContent=`${state.title} · ${state.questions.length} ข้อ`;
+    ui('counter').textContent=`1/${state.questions.length}`;
+    document.body.dataset.gameMode=state.mode;
+  };
   const render=()=>{
     const item=state.questions[state.index],total=state.questions.length;
     ui('counter').textContent=`${state.index+1}/${total}`;ui('round-number').textContent=String(state.index+1).padStart(2,'0');ui('round-label').textContent=`ข้อที่ ${state.index+1} / ${total}`;ui('progress').style.width=`${((state.index+1)/total)*100}%`;
@@ -85,7 +109,7 @@
     const main=document.createElement('main');main.style.cssText='max-width:680px;margin:40px auto;padding:20px;font-family:system-ui';
     const h1=document.createElement('h1');h1.textContent='เกมงอแงนิดนึง';
     const p=document.createElement('p');p.textContent=e instanceof Error?e.message:'เกิดข้อผิดพลาดที่ไม่รู้จัก';
-    const actionP=document.createElement('p'),link=document.createElement('a');link.href='/setup.html';link.textContent='กลับไปปั้นเกมใหม่';actionP.appendChild(link);main.append(h1,p,actionP);document.body.appendChild(main);
+    const actionP=document.createElement('p'),link=document.createElement('a');link.href='/';link.textContent='กลับหน้าแรก';actionP.appendChild(link);main.append(h1,p,actionP);document.body.appendChild(main);
   };
 
   const init=async()=>{
@@ -93,7 +117,7 @@
       await loadQuestions();ensureTiles();renderHome();
       action('start').addEventListener('click',start);action('reveal').addEventListener('click',reveal);action('next').addEventListener('click',next);action('restart').addEventListener('click',start);
       $$('[data-action="home"]').forEach(btn=>btn.addEventListener('click',e=>{e.preventDefault();renderHome();showScreen('home')}));
-      if(new URLSearchParams(location.search).get('custom')==='1')start();
+      if(params.get('custom')==='1')start();
     }catch(e){fail(e)}
   };
   init();
