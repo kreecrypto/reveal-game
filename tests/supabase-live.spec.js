@@ -8,6 +8,17 @@ const tinyPng=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQ
 
 test.skip(!LIVE,'set SUPABASE_LIVE_E2E=1 to run against real Supabase');
 
+async function ensureSavedQuestion(page,answer){
+  await expect(page.locator('[data-check="image"]').first()).toContainText('✓');
+  const input=page.locator('[data-field="answer"]').first();
+  await input.fill(answer);
+  await expect(input).toHaveValue(answer);
+  await input.press('Tab');
+  await expect(page.locator('[data-check="answer"]').first()).toContainText('✓');
+  await page.getByRole('button',{name:'เก็บไว้ก่อน'}).click();
+  await expect(page.locator('[data-ui="status"]')).toContainText('เก็บแล้ว');
+}
+
 test('real browser publish, public play, edit update, and storage cleanup',async({browser,request})=>{
   const creator=await browser.newContext();
   const page=await creator.newPage();
@@ -24,7 +35,8 @@ test('real browser publish, public play, edit update, and storage cleanup',async
     await page.locator('[data-field="file"]').first().setInputFiles({name:'live.png',mimeType:'image/png',buffer:tinyPng});
     await expect(page.locator('[data-ui="image-editor-modal"]')).not.toHaveClass(/is-hidden/);
     await page.getByRole('button',{name:'ใช้รูปนี้'}).click();
-    await page.locator('[data-field="answer"]').first().fill('แมว Live');
+    await expect(page.locator('[data-ui="image-editor-modal"]')).toHaveClass(/is-hidden/);
+    await ensureSavedQuestion(page,'แมว Live');
     await page.getByRole('button',{name:'เผยแพร่เกม'}).click();
 
     await expect(page.locator('[data-ui="share-modal"]')).not.toHaveClass(/is-hidden/,{timeout:20000});
@@ -51,7 +63,7 @@ test('real browser publish, public play, edit update, and storage cleanup',async
     await editPage.goto(`/setup.html?edit=${encodeURIComponent(slug)}#token=${editToken}`);
     await expect(editPage.locator('#game-title')).toHaveValue(title,{timeout:20000});
     await expect(editPage.locator('[data-field="answer"]').first()).toHaveValue('แมว Live');
-    await editPage.locator('[data-field="answer"]').first().fill('แมว Live Updated');
+    await ensureSavedQuestion(editPage,'แมว Live Updated');
     await editPage.getByRole('button',{name:'เผยแพร่เกม'}).click();
     await expect(editPage.locator('[data-ui="share-modal"]')).not.toHaveClass(/is-hidden/,{timeout:20000});
     await editor.close();
