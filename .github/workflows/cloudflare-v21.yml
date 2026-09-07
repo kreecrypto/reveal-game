@@ -1,62 +1,11 @@
-name: Cloudflare v21
+name: Cloudflare v21 (retired)
 
 on:
-  push:
-    branches:
-      - v21-shareable-game
-      - main
-    paths:
-      - 'cloudflare-v21/**'
-      - '.github/workflows/cloudflare-v21.yml'
   workflow_dispatch:
 
 jobs:
-  deploy:
+  retired:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    defaults:
-      run:
-        working-directory: cloudflare-v21
-    env:
-      CLOUDFLARE_ACCOUNT_ID: 26101a8b29ae846a755f83392597efc9
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Install dependencies
-        run: npm install --no-audit --no-fund
-
-      - name: Check CLOUDFLARE_API_TOKEN secret
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: test -n "$CLOUDFLARE_API_TOKEN"
-
-      - name: Verify Cloudflare token
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: npx wrangler whoami
-
-      - name: Ensure R2 bucket
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: |
-          if ! npx wrangler r2 bucket list | grep -q 'reveal-game-assets'; then
-            npx wrangler r2 bucket create reveal-game-assets
-          fi
-
-      - name: Upload preview version
-        if: github.ref_name != 'main'
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: npx wrangler versions upload
-
-      - name: Deploy production Worker
-        if: github.ref_name == 'main'
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: npx wrangler deploy
+      - name: Architecture notice
+        run: echo 'v21 Share now uses Vercel Frontend -> Supabase Database + Storage. Cloudflare deployment is retired.'
