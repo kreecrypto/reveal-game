@@ -28,6 +28,11 @@ jobs:
       - name: Wrangler v21 dry run
         run: npx wrangler deploy --dry-run --config cloudflare/wrangler.jsonc
 
+      - name: Cloudflare Dashboard wrapper dry run
+        run: |
+          npm install --prefix cloudflare-v21 --no-audit --no-fund
+          (cd cloudflare-v21 && npx wrangler deploy --dry-run)
+
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 
