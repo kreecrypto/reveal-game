@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, v20-5-code-hardening]
+    branches: [main, 'v20-*']
   pull_request:
     branches: [main]
 
