@@ -9,6 +9,7 @@
   const shareModal=$('[data-ui="share-modal"]');
   const shareInput=$('[data-ui="share-link"]');
   const editInput=$('[data-ui="edit-link"]');
+  const nativeShareButton=$('[data-action="native-share"]');
   const saveButton=$('[data-action="save"]');
   const appMain=$('[data-ui="main"]');
 
@@ -56,6 +57,7 @@
     const publicUrl=`${location.origin}/game/${encodeURIComponent(slug)}`;
     const editUrl=`${location.origin}/setup.html?edit=${encodeURIComponent(slug)}#token=${encodeURIComponent(editToken)}`;
     shareInput.value=publicUrl;editInput.value=editUrl;
+    nativeShareButton?.classList.toggle('is-hidden',!navigator.share);
     shareModal.classList.remove('is-hidden');
     document.body.classList.add('modal-open');
     appMain.inert=true;appMain.setAttribute('aria-hidden','true');
@@ -74,6 +76,15 @@
       input.focus();input.select();document.execCommand?.('copy');
     }
     const old=button.textContent;button.textContent='คัดลอกแล้ว ✓';setTimeout(()=>button.textContent=old,1400);
+  };
+
+  const nativeShare=async()=>{
+    if(!navigator.share||!shareInput.value)return;
+    try{
+      await navigator.share({title:$('#game-title')?.value.trim()||'เปิดป้ายดิ',url:shareInput.value});
+    }catch(error){
+      if(error?.name!=='AbortError')console.warn('native share failed',error);
+    }
   };
 
   const publishGame=async()=>{
@@ -135,6 +146,7 @@
   shareModal?.addEventListener('click',e=>{if(e.target===shareModal)closeShare()});
   $('[data-action="copy-share"]')?.addEventListener('click',e=>copyField(shareInput,e.currentTarget));
   $('[data-action="copy-edit"]')?.addEventListener('click',e=>copyField(editInput,e.currentTarget));
+  nativeShareButton?.addEventListener('click',nativeShare);
   $('[data-action="open-shared"]')?.addEventListener('click',()=>{if(shareInput.value)location.href=shareInput.value});
   $('[data-action="confirm-clear"]')?.addEventListener('click',()=>{clearMeta();clearImportFlags()});
   document.addEventListener('keydown',e=>{
