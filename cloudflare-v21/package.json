@@ -1,5 +1,6 @@
 {
   "name": "reveal-game-cloudflare-v21-build-wrapper",
+  "description": "Cloudflare Workers build wrapper for the v21 reveal-game release candidate.",
   "private": true,
   "scripts": {
     "deploy": "wrangler deploy",
