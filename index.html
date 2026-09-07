@@ -22,19 +22,16 @@
 
     <section class="screen is-active" data-screen="home">
       <div class="panel hero-panel">
-        <div class="eyebrow">REVEAL GAME · 3×3</div>
-        <h1>เปิดทีละป้าย<br><span>แล้วทายจากภาพ</span></h1>
-        <p>เลือกเลข 1–9 เพื่อแง้มภาพทีละช่อง ถ้าไม่ไหวก็กดดูเฉลยได้ ไม่ว่ากัน</p>
+        <h1>เปิดป้าย<br><span>แล้วทายภาพ</span></h1>
         <div class="answer-panel" style="margin:0 0 16px">
-          <span class="answer-label">ชุดเกม</span>
           <strong data-ui="game-title" style="font-size:18px">กำลังโหลด...</strong>
         </div>
         <div class="action-row">
           <button class="button button-primary button-lg" data-action="start">
             <span class="button-icon play-icon" aria-hidden="true"></span>
-            ลุยเลย
+            เล่น
           </button>
-          <a class="button button-secondary button-lg" href="/setup.html">ปั้น / แก้เกม</a>
+          <a class="button button-secondary button-lg" href="/setup.html">สร้าง / แก้เกม</a>
         </div>
       </div>
     </section>
@@ -42,17 +39,15 @@
     <section class="screen" data-screen="game">
       <div class="panel game-panel">
         <div class="game-meta">
-          <div class="round-badge" data-ui="round-number">01</div>
+          <div class="round-badge" data-ui="round-number" hidden>01</div>
           <div class="game-meta-copy">
-            <div class="meta-label" data-ui="round-label">ข้อที่ 1 / 10</div>
+            <div class="meta-label" data-ui="round-label" hidden>ข้อที่ 1 / 10</div>
             <div class="progress-track" aria-hidden="true"><span data-ui="progress"></span></div>
           </div>
         </div>
 
         <div class="question-block">
-          <div class="eyebrow">เลือกป้ายแล้วเปิดเลย</div>
           <h2 data-ui="question">นี่มันตัวอะไรเนี่ย?</h2>
-          <p>แตะเลขไหน เปิดช่องนั้น</p>
         </div>
 
         <div class="reveal-board" data-ui="board">
@@ -62,12 +57,12 @@
 
         <div class="answer-panel" aria-live="polite">
           <span class="answer-label">เฉลย</span>
-          <strong data-ui="answer">ยังไม่เฉลยนะ</strong>
+          <strong data-ui="answer">ยังไม่เฉลย</strong>
         </div>
 
         <div class="action-row">
-          <button class="button button-secondary" data-action="reveal">ไม่ไหวละ ดูเฉลย</button>
-          <button class="button button-primary is-hidden" data-action="next">ไปข้อต่อไป</button>
+          <button class="button button-secondary" data-action="reveal">ดูเฉลย</button>
+          <button class="button button-primary is-hidden" data-action="next">ข้อต่อไป</button>
         </div>
       </div>
     </section>
@@ -75,19 +70,17 @@
     <section class="screen" data-screen="done">
       <div class="panel finish-panel">
         <div class="finish-icon" aria-hidden="true">★</div>
-        <div class="eyebrow" data-ui="done-label">ครบทุกข้อแล้ว</div>
-        <h2>หมดแล้ว เก่งอยู่นะ</h2>
-        <p>จะเอาใหม่อีกรอบ หรือกลับไปปั้นเกมให้โหดกว่าเดิมก็ได้</p>
+        <div class="eyebrow" data-ui="done-label" hidden>ครบทุกข้อแล้ว</div>
+        <h2>จบเกม!</h2>
         <div class="action-row action-row-centered">
-          <button class="button button-primary" data-action="restart">เอาใหม่อีกรอบ</button>
-          <a class="button button-secondary" href="/setup.html">สร้างเกมของตัวเอง</a>
+          <button class="button button-primary" data-action="restart">เล่นอีกครั้ง</button>
+          <a class="button button-secondary" href="/setup.html">สร้างเกม</a>
           <button class="button button-ghost" data-action="home">หน้าแรก</button>
         </div>
       </div>
     </section>
   </main>
 
-  <div class="version-badge">v21.0</div>
   <script src="/js/storage.js"></script>
   <script src="/js/share-api.js" defer></script>
   <script src="/js/game.js" defer></script>
