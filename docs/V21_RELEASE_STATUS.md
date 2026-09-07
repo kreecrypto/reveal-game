@@ -1,15 +1,32 @@
 # v21 Release Status
 
-Frontend and Worker code are release-candidate complete.
+v21 is the Production release line.
 
-Validated on the release branch:
+Current architecture:
+
+- Vercel frontend
+- Supabase Database + Storage for share/publish
+- IndexedDB for local drafts
+- Public slug links for play
+- Private edit-token links for updates
+
+Validated release gates:
 
 - Syntax check: PASS
-- Wrangler dry run: PASS
-- Cloudflare Dashboard wrapper dry run: PASS
 - Playwright browser tests: PASS
-- Vercel preview: READY
-- IndexedDB remains the local draft store
-- Publish/share UI, public slug route, edit-token flow, D1 schema, and R2 asset flow are implemented
+- Real Supabase browser E2E: PASS
+- Publish → Storage → public play → private edit/update: PASS
+- RLS/edit-token flow: PASS
+- Test data and storage cleanup: PASS
 
-Cloudflare Dashboard build settings were updated on 2026-09-07 and a fresh v21 branch build was triggered for verification. Release remains blocked until `Workers Builds: reveal-game` is green and live Worker health succeeds.
+UX cleanup completed on 2026-09-07:
+
+- Removed redundant hero/helper copy
+- Removed duplicate progress/readiness text
+- Simplified Builder labels and CTAs
+- Removed backend/technical wording from user-facing screens
+- Simplified image editor and share modal copy
+- Removed visible version badges
+- Updated browser tests to the new concise labels
+
+Latest browser CI after the UX cleanup: PASS.
