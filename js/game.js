@@ -30,8 +30,8 @@
 
   const fromSharedGame=payload=>{
     const questions=normalize(payload?.questions||[]);
-    if(!questions.length)throw new Error('เกมที่แชร์นี้ยังไม่มีข้อให้เล่น');
-    state.title=String(payload?.game?.title||'เกมที่เพื่อนแชร์มา');
+    if(!questions.length)throw new Error('เกมนี้ยังไม่มีข้อให้เล่น');
+    state.title=String(payload?.game?.title||'เกมที่แชร์มา');
     return questions;
   };
 
@@ -43,8 +43,8 @@
         state.questions=fromSharedGame(remote);state.mode='shared';return;
       }catch(e){
         console.error('โหลดเกมแชร์ไม่สำเร็จ',e);
-        if(e?.code==='game_not_found')throw new Error('หาเกมจากลิงก์นี้ไม่เจอ อาจถูกลบหรือยังไม่เผยแพร่');
-        throw new Error('โหลดเกมจากลิงก์ไม่สำเร็จ ลองเปิดใหม่อีกที');
+        if(e?.code==='game_not_found')throw new Error('หาเกมจากลิงก์นี้ไม่เจอ');
+        throw new Error('โหลดเกมไม่สำเร็จ ลองใหม่อีกที');
       }
     }
     try{
@@ -54,7 +54,7 @@
     const res=await fetch('/data/questions.json',{cache:'no-store'});
     if(!res.ok)throw new Error(`โหลดเกมไม่ขึ้น (${res.status})`);
     state.questions=normalize(await res.json());state.title='Demo 10 ข้อ';
-    if(!state.questions.length)throw new Error('ไม่มีข้อให้เล่นเลย');
+    if(!state.questions.length)throw new Error('ไม่มีข้อให้เล่น');
   };
 
   const tileButtons=()=>$$('[data-tile]',ui('tiles'));
@@ -92,8 +92,8 @@
   const render=()=>{
     const item=state.questions[state.index],total=state.questions.length;
     ui('counter').textContent=`${state.index+1}/${total}`;ui('round-number').textContent=String(state.index+1).padStart(2,'0');ui('round-label').textContent=`ข้อที่ ${state.index+1} / ${total}`;ui('progress').style.width=`${((state.index+1)/total)*100}%`;
-    ui('question').textContent=item.question;ui('image').src=item.image;ui('image').alt=item.alt;ui('answer').textContent=state.revealed?item.answer:'ยังไม่เฉลยนะ';ui('done-label').textContent=`ครบ ${total} ข้อแล้ว`;
-    renderTiles();action('reveal').disabled=state.revealed;action('next').classList.toggle('is-hidden',!state.revealed);action('next').textContent=state.index===total-1?'ดูตอนจบ':'ไปข้อต่อไป';
+    ui('question').textContent=item.question;ui('image').src=item.image;ui('image').alt=item.alt;ui('answer').textContent=state.revealed?item.answer:'ยังไม่เฉลย';ui('done-label').textContent=`ครบ ${total} ข้อแล้ว`;
+    renderTiles();action('reveal').disabled=state.revealed;action('next').classList.toggle('is-hidden',!state.revealed);action('next').textContent=state.index===total-1?'จบเกม':'ข้อต่อไป';
   };
 
   const resetRound=()=>{state.opened=new Set();state.revealed=false};
@@ -107,8 +107,8 @@
   const fail=e=>{
     console.error(e);document.body.replaceChildren();
     const main=document.createElement('main');main.style.cssText='max-width:680px;margin:40px auto;padding:20px;font-family:system-ui';
-    const h1=document.createElement('h1');h1.textContent='เกมงอแงนิดนึง';
-    const p=document.createElement('p');p.textContent=e instanceof Error?e.message:'เกิดข้อผิดพลาดที่ไม่รู้จัก';
+    const h1=document.createElement('h1');h1.textContent='เปิดเกมไม่สำเร็จ';
+    const p=document.createElement('p');p.textContent=e instanceof Error?e.message:'เกิดข้อผิดพลาด';
     const actionP=document.createElement('p'),link=document.createElement('a');link.href='/';link.textContent='กลับหน้าแรก';actionP.appendChild(link);main.append(h1,p,actionP);document.body.appendChild(main);
   };
 
