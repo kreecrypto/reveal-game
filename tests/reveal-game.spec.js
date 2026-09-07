@@ -2,9 +2,17 @@ import { test, expect } from '@playwright/test';
 
 const tinyPng=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=','base64');
 
-async function fillFirstQuestion(page,{answer='แมวเทสต์'}={}){
+async function uploadAndApplyFirstImage(page){
   await page.locator('[data-field="file"]').first().setInputFiles({name:'test.png',mimeType:'image/png',buffer:tinyPng});
+  await expect(page.locator('[data-ui="image-editor-modal"]')).not.toHaveClass(/is-hidden/);
+  await expect(page.getByRole('heading',{name:'จัดรูปให้เป๊ะก่อน'})).toBeVisible();
+  await page.getByRole('button',{name:'ใช้รูปนี้'}).click();
+  await expect(page.locator('[data-ui="image-editor-modal"]')).toHaveClass(/is-hidden/);
   await expect(page.locator('[data-check="image"]').first()).toContainText('✓');
+}
+
+async function fillFirstQuestion(page,{answer='แมวเทสต์'}={}){
+  await uploadAndApplyFirstImage(page);
   await page.locator('[data-field="answer"]').first().fill(answer);
   await expect(page.locator('[data-check="answer"]').first()).toContainText('✓');
 }
@@ -32,6 +40,37 @@ test('setup saves, reloads, and plays the custom game',async({page})=>{
   await page.getByRole('button',{name:'ไม่ไหวละ ดูเฉลย'}).click();
   await expect(page.locator('[data-ui="answer"]')).toHaveText('แมวเทสต์');
   await expect(page.getByRole('button',{name:/ดูตอนจบ|ไปข้อต่อไป/})).toBeVisible();
+});
+
+test('image editor supports zoom, crop apply, save, and re-edit',async({page})=>{
+  await page.goto('/setup.html');
+  await page.locator('[data-field="file"]').first().setInputFiles({name:'crop-test.png',mimeType:'image/png',buffer:tinyPng});
+  await expect(page.locator('[data-ui="image-editor-modal"]')).not.toHaveClass(/is-hidden/);
+
+  const zoom=page.locator('[data-ui="image-zoom"]');
+  await zoom.evaluate(el=>{el.value='1.5';el.dispatchEvent(new Event('input',{bubbles:true}))});
+  await expect(page.locator('[data-ui="zoom-value"]')).toHaveText('1.50×');
+
+  const canvas=page.locator('[data-ui="image-editor-canvas"]');
+  const box=await canvas.boundingBox();
+  if(box){
+    await page.mouse.move(box.x+box.width/2,box.y+box.height/2);
+    await page.mouse.down();
+    await page.mouse.move(box.x+box.width/2+24,box.y+box.height/2+16,{steps:3});
+    await page.mouse.up();
+  }
+
+  await page.getByRole('button',{name:'ใช้รูปนี้'}).click();
+  await expect(page.locator('[data-check="image"]').first()).toContainText('✓');
+  await page.locator('[data-field="answer"]').first().fill('แมว');
+  await page.getByRole('button',{name:'เก็บไว้ก่อน'}).click();
+  await expect(page.locator('[data-ui="status"]')).toContainText('เก็บแล้ว');
+
+  await page.reload();
+  await page.getByRole('button',{name:'แก้ภาพ'}).first().click();
+  await expect(page.locator('[data-ui="image-editor-modal"]')).not.toHaveClass(/is-hidden/);
+  await expect(page.locator('[data-ui="zoom-value"]')).toHaveText('1.50×');
+  await page.getByRole('button',{name:'ไม่เอาละ'}).click();
 });
 
 test('dirty setup asks before leaving and can discard safely',async({page})=>{
