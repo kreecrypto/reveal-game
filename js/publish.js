@@ -5,13 +5,17 @@
   const META_KEY='reveal-game-publish-v21';
   const IMPORT_PREFIX='reveal-game-imported:';
   const publishButton=$('[data-action="publish"]');
-  const cloudStatus=$('[data-ui="cloud-status"]');
+  const shareStatus=$('[data-ui="share-status"]');
   const shareModal=$('[data-ui="share-modal"]');
   const shareInput=$('[data-ui="share-link"]');
   const saveButton=$('[data-action="save"]');
+  const playButton=$('[data-action="play"]');
   const appMain=$('[data-ui="main"]');
 
-  if(!publishButton||!window.RevealShareApi||!window.RevealGameStore)return;
+  if(!publishButton||!shareStatus||!shareModal||!shareInput||!saveButton||!playButton||!appMain||!window.RevealShareApi||!window.RevealGameStore)return;
+
+  let busy=false;
+  let statusMode='idle';
 
   const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   const readMeta=()=>{try{return JSON.parse(localStorage.getItem(META_KEY)||'null')}catch{return null}};
@@ -19,23 +23,45 @@
   const clearMeta=()=>localStorage.removeItem(META_KEY);
   const clearImportFlags=()=>{for(const key of Object.keys(sessionStorage)){if(key.startsWith(IMPORT_PREFIX))sessionStorage.removeItem(key)}};
   const hashToken=()=>new URLSearchParams(location.hash.replace(/^#/,'' )).get('token')||'';
-  const setCloud=(message,ready=false)=>{
-    cloudStatus.textContent=message;
-    cloudStatus.classList.toggle('ready',ready);
-    publishButton.disabled=!ready;
-  };
 
   const errorText=code=>({
-    save_failed:'บันทึกไม่สำเร็จ',
-    game_empty:'ยังไม่มีเกมให้แชร์',
+    save_failed:'บันทึกไม่สำเร็จ ลองใหม่อีกที',
+    game_empty:'ยังไม่มีเกมให้สร้างลิงก์',
     image_missing:'มีข้อที่รูปหาย',
-    invalid_edit_token:'สิทธิ์แก้ไขไม่ถูกต้อง',
-    edit_token_required:'สิทธิ์แก้ไขไม่ถูกต้อง',
+    invalid_edit_token:'ลิงก์นี้แก้ไขไม่ได้',
+    edit_token_required:'ลิงก์นี้แก้ไขไม่ได้',
     game_not_found:'หาเกมนี้ไม่เจอ',
     image_too_large:'มีรูปใหญ่เกินไป',
     images_too_large:'รูปทั้งหมดใหญ่เกินไป',
-    backend_unavailable:'สร้างลิงก์ยังไม่พร้อม'
-  }[code]||'สร้างลิงก์ไม่สำเร็จ');
+    backend_unavailable:'สร้างลิงก์ไม่สำเร็จ ลองใหม่อีกที'
+  }[code]||'สร้างลิงก์ไม่สำเร็จ ลองใหม่อีกที');
+
+  const setStatus=(message,mode='idle')=>{
+    statusMode=mode;
+    shareStatus.textContent=message;
+    shareStatus.classList.toggle('ready',mode==='success');
+    shareStatus.classList.toggle('error',mode==='error');
+  };
+
+  const refreshAvailability=({force=false}={})=>{
+    const complete=!playButton.disabled;
+    publishButton.disabled=busy||!complete;
+    if(busy){
+      publishButton.textContent='กำลังสร้างลิงก์...';
+      return;
+    }
+    publishButton.textContent='สร้างลิงก์';
+    if(force||statusMode==='idle'){
+      setStatus(complete?'พร้อมส่งให้เพื่อนเล่น':'ใส่รูปและเฉลยให้ครบก่อน');
+    }
+  };
+
+  const markShareDirty=()=>{
+    if(busy)return;
+    const complete=!playButton.disabled;
+    setStatus(complete&&readMeta()?.slug?'มีการแก้ไข · สร้างลิงก์อีกครั้งเพื่ออัปเดต':complete?'พร้อมส่งให้เพื่อนเล่น':'ใส่รูปและเฉลยให้ครบก่อน');
+    refreshAvailability();
+  };
 
   const waitForFreshSave=async()=>{
     const before=await RevealGameStore.getActive();
@@ -56,6 +82,7 @@
     url.searchParams.set('share',String(slug||''));
     return url.toString();
   };
+
   const openShare=slug=>{
     shareInput.value=buildShareUrl(slug);
     shareModal.classList.remove('is-hidden');
@@ -75,14 +102,16 @@
     try{await navigator.clipboard.writeText(input.value)}catch{
       input.focus();input.select();document.execCommand?.('copy');
     }
-    const old=button.textContent;button.textContent='คัดลอกแล้ว ✓';setTimeout(()=>button.textContent=old,1400);
+    const old=button.textContent;
+    button.textContent='คัดลอกแล้ว ✓';
+    setTimeout(()=>button.textContent=old,1400);
   };
 
   const publishGame=async()=>{
-    if(publishButton.disabled)return;
-    publishButton.disabled=true;
-    const oldText=publishButton.textContent;
-    publishButton.textContent='กำลังสร้างลิงก์...';
+    if(publishButton.disabled||busy)return;
+    busy=true;
+    setStatus('กำลังเตรียมลิงก์...');
+    refreshAvailability();
     try{
       const game=await waitForFreshSave();
       const meta=readMeta();
@@ -92,14 +121,14 @@
       const next={slug:result.slug||meta?.slug,editToken:result.editToken||meta?.editToken};
       if(!next.slug||!next.editToken)throw new Error('backend_unavailable');
       writeMeta(next);
-      setCloud('ลิงก์พร้อมแล้ว',true);
+      setStatus('ลิงก์พร้อมแล้ว', 'success');
       openShare(next.slug);
     }catch(error){
       console.error(error);
-      cloudStatus.textContent=errorText(error.code||error.message);
+      setStatus(errorText(error.code||error.message),'error');
     }finally{
-      publishButton.textContent=oldText;
-      try{await RevealShareApi.health();publishButton.disabled=false}catch{publishButton.disabled=true}
+      busy=false;
+      refreshAvailability();
     }
   };
 
@@ -107,11 +136,11 @@
     const slug=new URLSearchParams(location.search).get('edit');
     if(!slug)return;
     const token=hashToken();
-    if(!token){setCloud('สิทธิ์แก้ไขไม่ถูกต้อง',false);return}
+    if(!token){setStatus('ลิงก์นี้แก้ไขไม่ได้','error');return}
     writeMeta({slug,editToken:token});
     const importKey=`${IMPORT_PREFIX}${slug}`;
     if(sessionStorage.getItem(importKey)==='1')return;
-    setCloud('กำลังโหลดเกม...',false);
+    setStatus('กำลังโหลดเกม...');
     try{
       const remote=await RevealShareApi.fetchGame(slug);
       const questions=[];
@@ -128,16 +157,25 @@
       sessionStorage.setItem(importKey,'1');
       location.reload();
     }catch(error){
-      console.error(error);setCloud(errorText(error.code||error.message),false);
+      console.error(error);setStatus(errorText(error.code||error.message),'error');
     }
   };
 
   publishButton.addEventListener('click',publishGame);
   $$('[data-action="close-share"]').forEach(btn=>btn.addEventListener('click',closeShare));
-  shareModal?.addEventListener('click',e=>{if(e.target===shareModal)closeShare()});
+  shareModal.addEventListener('click',e=>{if(e.target===shareModal)closeShare()});
   $('[data-action="copy-share"]')?.addEventListener('click',e=>copyField(shareInput,e.currentTarget));
-  $('[data-action="open-shared"]')?.addEventListener('click',()=>{if(shareInput.value)location.href=shareInput.value});
-  $('[data-action="confirm-clear"]')?.addEventListener('click',()=>{clearMeta();clearImportFlags()});
+  $('[data-action="open-shared"]')?.addEventListener('click',()=>{if(shareInput.value)window.open(shareInput.value,'_blank','noopener')});
+  $('[data-action="confirm-clear"]')?.addEventListener('click',()=>{clearMeta();clearImportFlags();setStatus('ใส่รูปและเฉลยให้ครบก่อน')});
+
+  new MutationObserver(()=>refreshAvailability({force:statusMode!=='success'&&statusMode!=='error'})).observe(playButton,{attributes:true,attributeFilter:['disabled']});
+  appMain.addEventListener('input',markShareDirty,true);
+  appMain.addEventListener('change',markShareDirty,true);
+  appMain.addEventListener('click',e=>{
+    const action=e.target.closest('[data-action]')?.dataset.action;
+    if(['add','remove-item','apply-image-edit','choose-image','edit-image','clear'].includes(action))setTimeout(markShareDirty,0);
+  },true);
+
   document.addEventListener('keydown',e=>{
     if(shareModal.classList.contains('is-hidden'))return;
     if(e.key==='Escape'){e.preventDefault();closeShare();return}
@@ -150,13 +188,7 @@
   });
 
   (async()=>{
-    try{
-      await importRemoteEdit();
-      await RevealShareApi.health();
-      setCloud('พร้อมสร้างลิงก์',true);
-    }catch(error){
-      console.warn('share backend unavailable',error);
-      setCloud('สร้างลิงก์ยังไม่พร้อม',false);
-    }
+    try{await importRemoteEdit()}catch(error){console.warn(error)}
+    refreshAvailability({force:true});
   })();
 })();
