@@ -10,6 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Mitr:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/game.css">
   <link rel="stylesheet" href="/css/setup.css">
+  <link rel="stylesheet" href="/css/share.css">
 </head>
 <body>
   <main class="app-shell setup-shell" data-ui="main">
@@ -47,6 +48,16 @@
     </section>
 
     <section data-ui="items" class="setup-list" aria-live="polite"></section>
+
+    <section class="publish-card panel" aria-live="polite">
+      <div class="publish-copy">
+        <div class="step-kicker"><span>3</span> ส่งลิงก์ให้เพื่อนเล่น</div>
+        <h2>พร้อมแล้วก็โยนขึ้น Cloud</h2>
+        <p class="cloud-status" data-ui="cloud-status">กำลังเช็ก Cloud...</p>
+        <small class="publish-state" data-ui="publish-state">Draft ยังอยู่ในเครื่องเหมือนเดิม</small>
+      </div>
+      <button class="button button-primary" type="button" data-action="publish" disabled>เผยแพร่เกม</button>
+    </section>
 
     <section class="setup-footer panel">
       <div>
@@ -175,8 +186,45 @@
     </section>
   </div>
 
-  <div class="version-badge">v20.6</div>
+  <div class="game-modal-backdrop is-hidden" data-ui="share-modal">
+    <section class="game-modal share-modal" role="dialog" aria-modal="true" aria-labelledby="share-modal-title" tabindex="-1">
+      <div class="image-editor-head">
+        <div>
+          <span class="image-editor-kicker">PUBLISHED · v21</span>
+          <h2 id="share-modal-title">เกมขึ้น Cloud แล้ว 🎉</h2>
+          <p>ส่งลิงก์แรกให้คนอื่นเล่น ส่วนลิงก์แก้เก็บไว้กับตัว อย่าส่งมั่ว</p>
+        </div>
+        <button class="icon-button" type="button" data-action="close-share" aria-label="ปิดหน้าต่างแชร์">×</button>
+      </div>
+
+      <div class="share-field">
+        <label for="share-link">ลิงก์ให้คนอื่นเล่น</label>
+        <div class="share-field-row">
+          <input id="share-link" data-ui="share-link" readonly>
+          <button class="button button-secondary" type="button" data-action="copy-share">คัดลอก</button>
+        </div>
+      </div>
+
+      <div class="share-field">
+        <label for="edit-link">ลิงก์กลับมาแก้เกม — เป็นความลับ</label>
+        <div class="share-field-row">
+          <input id="edit-link" data-ui="edit-link" readonly>
+          <button class="button button-ghost" type="button" data-action="copy-edit">คัดลอก</button>
+        </div>
+      </div>
+
+      <p class="share-note">ลิงก์แก้เกมมี Private Edit Token อยู่ในส่วนหลัง # ของ URL คนที่มีลิงก์นี้สามารถ Publish ทับเกมเดิมได้</p>
+      <div class="share-actions">
+        <button class="button button-primary" type="button" data-action="open-shared">ลองเปิดลิงก์เกม</button>
+        <button class="button button-ghost" type="button" data-action="close-share">ปิดก่อน</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="version-badge">v21.0</div>
   <script src="/js/storage.js"></script>
+  <script src="/js/share-api.js" defer></script>
   <script src="/js/setup.js" defer></script>
+  <script src="/js/publish.js" defer></script>
 </body>
 </html>
