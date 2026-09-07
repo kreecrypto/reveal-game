@@ -104,7 +104,7 @@ test('removed question can be undone before save',async({page})=>{
   await expect(page.locator('[data-item]')).toHaveCount(2);
 });
 
-test('v21 publishes directly to Supabase and returns public plus private links',async({page})=>{
+test('v21 publishes directly to Supabase and exposes only the public share link',async({page})=>{
   await mockShareHealth(page);
   let sharedSlug='';
 
@@ -143,7 +143,7 @@ test('v21 publishes directly to Supabase and returns public plus private links',
   await expect(page.locator('[data-ui="share-modal"]')).not.toHaveClass(/is-hidden/);
   expect(sharedSlug).toMatch(/^[a-z0-9]{10}$/);
   await expect(page.locator('[data-ui="share-link"]')).toHaveValue(new RegExp(`/game/${sharedSlug}$`));
-  await expect(page.locator('[data-ui="edit-link"]')).toHaveValue(new RegExp(`setup\\.html\\?edit=${sharedSlug}#token=.+$`));
+  await expect(page.locator('[data-ui="edit-link"]')).toHaveCount(0);
 });
 
 test('v21 public shared game loads Supabase payload before local draft',async({page})=>{
