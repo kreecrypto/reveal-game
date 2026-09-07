@@ -13,7 +13,7 @@
       "binding": "DB",
       "database_name": "reveal-game-db",
       "database_id": "23cd0106-e233-47ff-8501-b5e0b995f0d4",
-      "migrations_dir": "../cloudflare/migrations"
+      "migrations_dir": "migrations"
     }
   ],
   "r2_buckets": [
