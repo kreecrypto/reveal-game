@@ -1,0 +1,25 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "reveal-game",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-07",
+  "workers_dev": true,
+  "vars": {
+    "ALLOWED_ORIGINS": "https://reveal-game.vercel.app",
+    "ALLOW_VERCEL_PREVIEWS": "1"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "reveal-game-db",
+      "database_id": "23cd0106-e233-47ff-8501-b5e0b995f0d4",
+      "migrations_dir": "../cloudflare/migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "ASSETS",
+      "bucket_name": "reveal-game-assets"
+    }
+  ]
+}
