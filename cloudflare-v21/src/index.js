@@ -3,6 +3,7 @@ const MAX_QUESTIONS = 10;
 const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
 const MAX_TITLE = 80;
 const MAX_TEXT = 120;
+let schemaReadyPromise = null;
 
 function originAllowed(request, env) {
   const origin = request.headers.get('Origin');
@@ -58,6 +59,40 @@ async function sha256(value) {
   const data=new TextEncoder().encode(value);
   const digest=await crypto.subtle.digest('SHA-256',data);
   return [...new Uint8Array(digest)].map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+async function ensureSchema(env) {
+  if (!env.DB) throw new Error('db_binding_missing');
+  if (!env.ASSETS) throw new Error('assets_binding_missing');
+  if (!schemaReadyPromise) {
+    schemaReadyPromise = env.DB.batch([
+      env.DB.prepare(`CREATE TABLE IF NOT EXISTS share_games (
+        id TEXT PRIMARY KEY,
+        slug TEXT NOT NULL UNIQUE,
+        title TEXT NOT NULL,
+        edit_token_hash TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'published',
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        published_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`),
+      env.DB.prepare(`CREATE TABLE IF NOT EXISTS share_questions (
+        id TEXT PRIMARY KEY,
+        game_id TEXT NOT NULL,
+        position INTEGER NOT NULL,
+        question TEXT NOT NULL,
+        answer TEXT NOT NULL,
+        asset_key TEXT NOT NULL,
+        FOREIGN KEY (game_id) REFERENCES share_games(id) ON DELETE CASCADE
+      )`),
+      env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_share_questions_game ON share_questions(game_id, position)'),
+      env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_share_games_updated ON share_games(updated_at)')
+    ]).catch(error=>{
+      schemaReadyPromise=null;
+      throw error;
+    });
+  }
+  return schemaReadyPromise;
 }
 
 async function parsePublishForm(request) {
@@ -195,6 +230,7 @@ async function assetResponse(request,env,key){
 
 function errorStatus(message){
   if(['invalid_content_type','manifest_required','invalid_manifest','invalid_questions','answer_required','image_required','invalid_image_type','image_too_large'].includes(message))return 400;
+  if(['db_binding_missing','assets_binding_missing'].includes(message))return 503;
   return 500;
 }
 
@@ -203,6 +239,7 @@ export default{
     const url=new URL(request.url);
     if(request.method==='OPTIONS')return new Response(null,{status:204,headers:cors(request,env)});
     try{
+      await ensureSchema(env);
       if((url.pathname==='/health'||url.pathname==='/api/v2/health')&&request.method==='GET')return json(request,env,{ok:true,service:'reveal-game-share-api',version:'v21'});
       if(url.pathname==='/api/v2/games'&&request.method==='POST')return createGame(request,env);
       const gameMatch=url.pathname.match(/^\/api\/v2\/games\/([a-z0-9]+)$/);
@@ -214,7 +251,8 @@ export default{
     }catch(error){
       console.error(error);
       const message=error instanceof Error?error.message:'internal_error';
-      return json(request,env,{error:errorStatus(message)===500?'internal_error':message},errorStatus(message));
+      const status=errorStatus(message);
+      return json(request,env,{error:status===500?'internal_error':message},status);
     }
   }
 };
