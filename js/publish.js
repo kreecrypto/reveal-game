@@ -20,7 +20,7 @@
   const writeMeta=value=>localStorage.setItem(META_KEY,JSON.stringify(value));
   const clearMeta=()=>localStorage.removeItem(META_KEY);
   const clearImportFlags=()=>{for(const key of Object.keys(sessionStorage)){if(key.startsWith(IMPORT_PREFIX))sessionStorage.removeItem(key)}};
-  const hashToken=()=>new URLSearchParams(location.hash.replace(/^#/,'')).get('token')||'';
+  const hashToken=()=>new URLSearchParams(location.hash.replace(/^#/,'' )).get('token')||'';
   const setCloud=(message,ready=false)=>{
     cloudStatus.textContent=message;
     cloudStatus.classList.toggle('ready',ready);
@@ -35,7 +35,8 @@
     edit_token_required:'ไม่เจอกุญแจแก้เกม',
     game_not_found:'หาเกมที่แชร์นี้ไม่เจอ',
     image_too_large:'มีรูปใหญ่เกินไป ลองจัดรูปใหม่',
-    backend_unavailable:'Cloud ยังไม่พร้อม ลองใหม่อีกที'
+    images_too_large:'รูปทั้งหมดใหญ่เกินไป ลองลดขนาดลงนิดนึง',
+    backend_unavailable:'ระบบแชร์ยังไม่พร้อม ลองใหม่อีกที'
   }[code]||'แชร์ไม่สำเร็จ ลองใหม่อีกที');
 
   const waitForFreshSave=async()=>{
@@ -80,7 +81,7 @@
     if(publishButton.disabled)return;
     publishButton.disabled=true;
     const oldText=publishButton.textContent;
-    publishButton.textContent='กำลังส่งขึ้น Cloud...';
+    publishButton.textContent='กำลังแชร์เกม...';
     publishState.textContent='กำลังเก็บ Draft ก่อน แล้วค่อยเผยแพร่';
     try{
       const game=await waitForFreshSave();
@@ -110,7 +111,7 @@
     writeMeta({slug,editToken:token});
     const importKey=`${IMPORT_PREFIX}${slug}`;
     if(sessionStorage.getItem(importKey)==='1')return;
-    publishState.textContent='กำลังดึงเกมจาก Cloud ลงเครื่องนี้...';
+    publishState.textContent='กำลังดึงเกมที่แชร์ลงเครื่องนี้...';
     try{
       const remote=await RevealShareApi.fetchGame(slug);
       const questions=[];
@@ -153,12 +154,12 @@
     try{
       await importRemoteEdit();
       await RevealShareApi.health();
-      setCloud('Cloud พร้อมแชร์ · D1 + R2',true);
+      setCloud('Share พร้อม · Supabase DB + Storage',true);
       const meta=readMeta();
       if(meta?.slug)publishState.textContent=`เกมนี้เคยเผยแพร่แล้ว · ${meta.slug}`;
     }catch(error){
       console.warn('share backend unavailable',error);
-      setCloud('Cloud ยังไม่เชื่อม · Draft ในเครื่องยังใช้ได้',false);
+      setCloud('ระบบแชร์ยังไม่เชื่อม · Draft ในเครื่องยังใช้ได้',false);
       publishState.textContent='ตอนนี้ยังเก็บและเล่นในเครื่องได้ตามปกติ';
     }
   })();
