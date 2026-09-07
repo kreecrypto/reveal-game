@@ -1,310 +1,258 @@
-const JSON_HEADERS = { 'Content-Type': 'application/json; charset=utf-8' };
+const JSON_HEADERS = {'Content-Type':'application/json; charset=utf-8'};
+const MAX_QUESTIONS = 10;
+const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
+const MAX_TITLE = 80;
+const MAX_TEXT = 120;
+let schemaReadyPromise = null;
 
-function allowedOrigin(request, env) {
+function originAllowed(request, env) {
   const origin = request.headers.get('Origin');
-  const configured = (env.ALLOWED_ORIGINS || 'https://reveal-game.vercel.app')
-    .split(',')
-    .map((v) => v.trim())
-    .filter(Boolean);
-  if (!origin) return configured[0] || '*';
-  return configured.includes(origin) ? origin : configured[0] || '*';
+  const allowed = String(env.ALLOWED_ORIGINS || 'https://reveal-game.vercel.app').split(',').map(x=>x.trim()).filter(Boolean);
+  if (!origin) return allowed[0] || '*';
+  if (allowed.includes(origin)) return origin;
+  if (env.ALLOW_VERCEL_PREVIEWS === '1') {
+    try {
+      const host = new URL(origin).hostname;
+      if (host.endsWith('.vercel.app')) return origin;
+    } catch {}
+  }
+  return allowed[0] || '*';
 }
 
-function corsHeaders(request, env) {
+function cors(request, env) {
   return {
-    'Access-Control-Allow-Origin': allowedOrigin(request, env),
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Admin-Token',
+    'Access-Control-Allow-Origin': originAllowed(request, env),
+    'Access-Control-Allow-Headers': 'Content-Type, X-Edit-Token',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
     'Access-Control-Max-Age': '86400',
-    Vary: 'Origin'
+    'Vary': 'Origin'
   };
 }
 
-function json(request, env, data, status = 200, extra = {}) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { ...JSON_HEADERS, ...corsHeaders(request, env), ...extra }
-  });
+function json(request, env, body, status=200, extra={}) {
+  return new Response(JSON.stringify(body), {status, headers:{...JSON_HEADERS,...cors(request,env),...extra}});
 }
 
-async function readJson(request) {
-  const type = request.headers.get('content-type') || '';
-  if (!type.includes('application/json')) throw new Error('invalid_content_type');
-  return request.json();
+function text(value, max) {
+  return String(value ?? '').trim().slice(0,max);
 }
 
-function normalizeAnswer(value) {
-  return String(value ?? '').trim().toLocaleLowerCase('th-TH');
+function bytesToBase64Url(bytes) {
+  let binary='';
+  for (const b of bytes) binary += String.fromCharCode(b);
+  return btoa(binary).replaceAll('+','-').replaceAll('/','_').replaceAll('=','');
 }
 
-function scoreRound({ openedCount, wrongCount, hintUsed }) {
-  return Math.max(0, 1000 - openedCount * 50 - wrongCount * 100 - (hintUsed ? 150 : 0));
+function randomToken(size=32) {
+  const bytes = new Uint8Array(size);
+  crypto.getRandomValues(bytes);
+  return bytesToBase64Url(bytes);
 }
 
-async function requireAdmin(request, env) {
-  if (!env.ADMIN_TOKEN) return false;
-  const token = request.headers.get('X-Admin-Token') || '';
-  return token && token === env.ADMIN_TOKEN;
+function randomSlug() {
+  const alphabet='abcdefghjkmnpqrstuvwxyz23456789';
+  const bytes=new Uint8Array(9);crypto.getRandomValues(bytes);
+  return [...bytes].map(b=>alphabet[b%alphabet.length]).join('');
 }
 
-async function getSessionRound(env, sessionId, roundId) {
-  return env.DB.prepare(`
-    SELECT sr.session_id, sr.round_id, sr.wrong_count, sr.hint_used, sr.status, sr.score,
-           r.game_id, r.sort_order, r.question, r.answer_json, r.hint, r.grid_size, r.asset_key
-    FROM session_rounds sr
-    JOIN game_rounds r ON r.id = sr.round_id
-    JOIN game_sessions s ON s.id = sr.session_id AND s.game_id = r.game_id
-    WHERE sr.session_id = ? AND sr.round_id = ?
-  `).bind(sessionId, roundId).first();
+async function sha256(value) {
+  const data=new TextEncoder().encode(value);
+  const digest=await crypto.subtle.digest('SHA-256',data);
+  return [...new Uint8Array(digest)].map(b=>b.toString(16).padStart(2,'0')).join('');
 }
 
-async function openedCount(env, sessionId, roundId) {
-  const row = await env.DB.prepare(
-    'SELECT COUNT(*) AS count FROM session_opened_tiles WHERE session_id = ? AND round_id = ?'
-  ).bind(sessionId, roundId).first();
-  return Number(row?.count || 0);
-}
-
-async function refreshSessionScore(env, sessionId) {
-  const row = await env.DB.prepare(
-    `SELECT COALESCE(SUM(score), 0) AS score FROM session_rounds WHERE session_id = ?`
-  ).bind(sessionId).first();
-  const score = Number(row?.score || 0);
-  await env.DB.prepare('UPDATE game_sessions SET score = ? WHERE id = ?').bind(score, sessionId).run();
-  return score;
-}
-
-async function handleApi(request, env, url) {
-  const path = url.pathname;
-
-  if (path === '/api/v1/health' && request.method === 'GET') {
-    return json(request, env, { ok: true, service: 'reveal-game-api', version: 'v1' });
+async function ensureSchema(env) {
+  if (!env.DB) throw new Error('db_binding_missing');
+  if (!env.ASSETS) throw new Error('assets_binding_missing');
+  if (!schemaReadyPromise) {
+    schemaReadyPromise = env.DB.batch([
+      env.DB.prepare(`CREATE TABLE IF NOT EXISTS share_games (
+        id TEXT PRIMARY KEY,
+        slug TEXT NOT NULL UNIQUE,
+        title TEXT NOT NULL,
+        edit_token_hash TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'published',
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        published_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`),
+      env.DB.prepare(`CREATE TABLE IF NOT EXISTS share_questions (
+        id TEXT PRIMARY KEY,
+        game_id TEXT NOT NULL,
+        position INTEGER NOT NULL,
+        question TEXT NOT NULL,
+        answer TEXT NOT NULL,
+        asset_key TEXT NOT NULL,
+        FOREIGN KEY (game_id) REFERENCES share_games(id) ON DELETE CASCADE
+      )`),
+      env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_share_questions_game ON share_questions(game_id, position)'),
+      env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_share_games_updated ON share_games(updated_at)')
+    ]).catch(error=>{
+      schemaReadyPromise=null;
+      throw error;
+    });
   }
+  return schemaReadyPromise;
+}
 
-  if (path === '/api/v1/games' && request.method === 'GET') {
-    const result = await env.DB.prepare(`
-      SELECT id, title, description, difficulty, status, created_at, updated_at
-      FROM games
-      WHERE status = 'published'
-      ORDER BY created_at DESC
-    `).all();
-    return json(request, env, { games: result.results ?? [] });
+async function parsePublishForm(request) {
+  const type=request.headers.get('content-type')||'';
+  if (!type.includes('multipart/form-data')) throw new Error('invalid_content_type');
+  const form=await request.formData();
+  const raw=form.get('manifest');
+  if (typeof raw!=='string') throw new Error('manifest_required');
+  let manifest;
+  try {manifest=JSON.parse(raw)} catch {throw new Error('invalid_manifest')}
+  const title=text(manifest?.title,MAX_TITLE)||'เกมของฉัน';
+  if (!Array.isArray(manifest?.questions)||!manifest.questions.length||manifest.questions.length>MAX_QUESTIONS) throw new Error('invalid_questions');
+  const questions=[];
+  for(let i=0;i<manifest.questions.length;i++){
+    const q=manifest.questions[i]||{};
+    const question=text(q.question,MAX_TEXT)||'นี่มันตัวอะไรเนี่ย?';
+    const answer=text(q.answer,MAX_TEXT);
+    if(!answer)throw new Error('answer_required');
+    const file=form.get(`image${i}`);
+    if(!(file instanceof File))throw new Error('image_required');
+    if(!String(file.type||'').startsWith('image/'))throw new Error('invalid_image_type');
+    if(file.size<=0||file.size>MAX_IMAGE_BYTES)throw new Error('image_too_large');
+    questions.push({question,answer,file});
   }
+  return {title,questions};
+}
 
-  const gameMatch = path.match(/^\/api\/v1\/games\/([^/]+)$/);
-  if (gameMatch && request.method === 'GET') {
-    const gameId = decodeURIComponent(gameMatch[1]);
-    const game = await env.DB.prepare(`
-      SELECT id, title, description, difficulty, status, created_at, updated_at
-      FROM games WHERE id = ? AND status = 'published'
-    `).bind(gameId).first();
-    if (!game) return json(request, env, { error: 'game_not_found' }, 404);
-
-    const rounds = await env.DB.prepare(`
-      SELECT id, sort_order, question, grid_size, asset_key
-      FROM game_rounds WHERE game_id = ? ORDER BY sort_order ASC
-    `).bind(gameId).all();
-    return json(request, env, { game, rounds: rounds.results ?? [] });
+async function uniqueSlug(env){
+  for(let i=0;i<8;i++){
+    const slug=randomSlug();
+    const row=await env.DB.prepare('SELECT id FROM share_games WHERE slug = ?').bind(slug).first();
+    if(!row)return slug;
   }
+  throw new Error('slug_generation_failed');
+}
 
-  if (path === '/api/v1/sessions' && request.method === 'POST') {
-    const body = await readJson(request);
-    const gameId = String(body.gameId || '');
-    const game = await env.DB.prepare(
-      `SELECT id FROM games WHERE id = ? AND status = 'published'`
-    ).bind(gameId).first();
-    if (!game) return json(request, env, { error: 'game_not_found' }, 404);
+async function getPublished(env,slug){
+  return env.DB.prepare(`SELECT id,slug,title,status,created_at,updated_at,published_at
+    FROM share_games WHERE slug=? AND status='published'`).bind(slug).first();
+}
 
-    const sessionId = crypto.randomUUID();
-    const rounds = await env.DB.prepare(
-      'SELECT id FROM game_rounds WHERE game_id = ? ORDER BY sort_order ASC'
-    ).bind(gameId).all();
-    if (!rounds.results?.length) return json(request, env, { error: 'game_has_no_rounds' }, 409);
+async function assetKeysForGame(env,gameId){
+  const rows=await env.DB.prepare('SELECT asset_key FROM share_questions WHERE game_id = ?').bind(gameId).all();
+  return (rows.results||[]).map(r=>r.asset_key).filter(Boolean);
+}
 
+async function putImages(env,gameId,questions){
+  const uploaded=[];
+  try{
+    for(const q of questions){
+      const key=`shared-games/${gameId}/${crypto.randomUUID()}.webp`;
+      await env.ASSETS.put(key,q.file.stream(),{httpMetadata:{contentType:q.file.type||'image/webp'}});
+      uploaded.push(key);
+    }
+    return uploaded;
+  }catch(error){
+    if(uploaded.length)await env.ASSETS.delete(uploaded);
+    throw error;
+  }
+}
+
+async function deleteAssets(env,keys){
+  if(!keys?.length)return;
+  try{await env.ASSETS.delete(keys)}catch(error){console.warn('asset cleanup failed',error)}
+}
+
+function insertQuestions(env,gameId,questions,keys){
+  return questions.map((q,i)=>env.DB.prepare(`INSERT INTO share_questions
+    (id,game_id,position,question,answer,asset_key) VALUES (?,?,?,?,?,?)`)
+    .bind(crypto.randomUUID(),gameId,i+1,q.question,q.answer,keys[i]));
+}
+
+async function createGame(request,env){
+  const {title,questions}=await parsePublishForm(request);
+  const gameId=crypto.randomUUID();
+  const slug=await uniqueSlug(env);
+  const editToken=randomToken();
+  const editHash=await sha256(editToken);
+  const keys=await putImages(env,gameId,questions);
+  try{
     await env.DB.batch([
-      env.DB.prepare(
-        `INSERT INTO game_sessions (id, game_id, score, current_round, status) VALUES (?, ?, 0, 0, 'playing')`
-      ).bind(sessionId, gameId),
-      ...rounds.results.map((r) => env.DB.prepare(
-        `INSERT INTO session_rounds (session_id, round_id, wrong_count, hint_used, status, score)
-         VALUES (?, ?, 0, 0, 'playing', 0)`
-      ).bind(sessionId, r.id))
+      env.DB.prepare(`INSERT INTO share_games
+        (id,slug,title,edit_token_hash,status,published_at) VALUES (?,?,?,?,'published',CURRENT_TIMESTAMP)`)
+        .bind(gameId,slug,title,editHash),
+      ...insertQuestions(env,gameId,questions,keys)
     ]);
-
-    return json(request, env, { sessionId, gameId, status: 'playing' }, 201);
+  }catch(error){
+    await deleteAssets(env,keys);throw error;
   }
-
-  const sessionMatch = path.match(/^\/api\/v1\/sessions\/([^/]+)$/);
-  if (sessionMatch && request.method === 'GET') {
-    const sessionId = decodeURIComponent(sessionMatch[1]);
-    const session = await env.DB.prepare(`
-      SELECT id, game_id, score, current_round, status, created_at, completed_at
-      FROM game_sessions WHERE id = ?
-    `).bind(sessionId).first();
-    if (!session) return json(request, env, { error: 'session_not_found' }, 404);
-
-    const rounds = await env.DB.prepare(`
-      SELECT sr.round_id, r.sort_order, r.question, r.grid_size, r.asset_key,
-             sr.wrong_count, sr.hint_used, sr.status, sr.score,
-             (SELECT COUNT(*) FROM session_opened_tiles t WHERE t.session_id = sr.session_id AND t.round_id = sr.round_id) AS opened_count
-      FROM session_rounds sr
-      JOIN game_rounds r ON r.id = sr.round_id
-      WHERE sr.session_id = ?
-      ORDER BY r.sort_order ASC
-    `).bind(sessionId).all();
-    return json(request, env, { session, rounds: rounds.results ?? [] });
-  }
-
-  const openMatch = path.match(/^\/api\/v1\/sessions\/([^/]+)\/rounds\/([^/]+)\/open$/);
-  if (openMatch && request.method === 'POST') {
-    const sessionId = decodeURIComponent(openMatch[1]);
-    const roundId = decodeURIComponent(openMatch[2]);
-    const state = await getSessionRound(env, sessionId, roundId);
-    if (!state) return json(request, env, { error: 'round_not_found' }, 404);
-    if (state.status !== 'playing') return json(request, env, { error: 'round_already_finished' }, 409);
-
-    const body = await readJson(request);
-    const tileIndex = Number(body.tileIndex);
-    const maxTiles = Number(state.grid_size) ** 2;
-    if (!Number.isInteger(tileIndex) || tileIndex < 0 || tileIndex >= maxTiles) {
-      return json(request, env, { error: 'invalid_tile_index' }, 400);
-    }
-
-    await env.DB.prepare(`
-      INSERT OR IGNORE INTO session_opened_tiles (session_id, round_id, tile_index)
-      VALUES (?, ?, ?)
-    `).bind(sessionId, roundId, tileIndex).run();
-    const count = await openedCount(env, sessionId, roundId);
-    const currentScore = scoreRound({ openedCount: count, wrongCount: Number(state.wrong_count), hintUsed: Boolean(state.hint_used) });
-    return json(request, env, { openedCount: count, currentScore });
-  }
-
-  const hintMatch = path.match(/^\/api\/v1\/sessions\/([^/]+)\/rounds\/([^/]+)\/hint$/);
-  if (hintMatch && request.method === 'POST') {
-    const sessionId = decodeURIComponent(hintMatch[1]);
-    const roundId = decodeURIComponent(hintMatch[2]);
-    const state = await getSessionRound(env, sessionId, roundId);
-    if (!state) return json(request, env, { error: 'round_not_found' }, 404);
-    if (state.status !== 'playing') return json(request, env, { error: 'round_already_finished' }, 409);
-
-    await env.DB.prepare(`UPDATE session_rounds SET hint_used = 1 WHERE session_id = ? AND round_id = ?`)
-      .bind(sessionId, roundId).run();
-    const count = await openedCount(env, sessionId, roundId);
-    const currentScore = scoreRound({ openedCount: count, wrongCount: Number(state.wrong_count), hintUsed: true });
-    return json(request, env, { hint: state.hint || null, hintUsed: true, currentScore });
-  }
-
-  const guessMatch = path.match(/^\/api\/v1\/sessions\/([^/]+)\/rounds\/([^/]+)\/guess$/);
-  if (guessMatch && request.method === 'POST') {
-    const sessionId = decodeURIComponent(guessMatch[1]);
-    const roundId = decodeURIComponent(guessMatch[2]);
-    const state = await getSessionRound(env, sessionId, roundId);
-    if (!state) return json(request, env, { error: 'round_not_found' }, 404);
-    if (state.status !== 'playing') return json(request, env, { error: 'round_already_finished' }, 409);
-
-    const body = await readJson(request);
-    const guess = normalizeAnswer(body.answer);
-    if (!guess) return json(request, env, { error: 'answer_required' }, 400);
-
-    let accepted = [];
-    try { accepted = JSON.parse(state.answer_json); } catch { accepted = []; }
-    const correct = accepted.some((a) => normalizeAnswer(a) === guess);
-    const count = await openedCount(env, sessionId, roundId);
-
-    if (!correct) {
-      const wrongCount = Number(state.wrong_count) + 1;
-      await env.DB.prepare(`UPDATE session_rounds SET wrong_count = ? WHERE session_id = ? AND round_id = ?`)
-        .bind(wrongCount, sessionId, roundId).run();
-      const currentScore = scoreRound({ openedCount: count, wrongCount, hintUsed: Boolean(state.hint_used) });
-      return json(request, env, { correct: false, wrongCount, currentScore });
-    }
-
-    const roundScore = scoreRound({ openedCount: count, wrongCount: Number(state.wrong_count), hintUsed: Boolean(state.hint_used) });
-    await env.DB.prepare(`
-      UPDATE session_rounds SET status = 'correct', score = ? WHERE session_id = ? AND round_id = ?
-    `).bind(roundScore, sessionId, roundId).run();
-    const totalScore = await refreshSessionScore(env, sessionId);
-    return json(request, env, { correct: true, answer: accepted[0] || null, roundScore, totalScore });
-  }
-
-  const revealMatch = path.match(/^\/api\/v1\/sessions\/([^/]+)\/rounds\/([^/]+)\/reveal$/);
-  if (revealMatch && request.method === 'POST') {
-    const sessionId = decodeURIComponent(revealMatch[1]);
-    const roundId = decodeURIComponent(revealMatch[2]);
-    const state = await getSessionRound(env, sessionId, roundId);
-    if (!state) return json(request, env, { error: 'round_not_found' }, 404);
-    if (state.status !== 'playing') return json(request, env, { error: 'round_already_finished' }, 409);
-
-    let accepted = [];
-    try { accepted = JSON.parse(state.answer_json); } catch { accepted = []; }
-    await env.DB.prepare(`
-      UPDATE session_rounds SET status = 'revealed', score = 0 WHERE session_id = ? AND round_id = ?
-    `).bind(sessionId, roundId).run();
-    const totalScore = await refreshSessionScore(env, sessionId);
-    return json(request, env, { revealed: true, answer: accepted[0] || null, roundScore: 0, totalScore });
-  }
-
-  const completeMatch = path.match(/^\/api\/v1\/sessions\/([^/]+)\/complete$/);
-  if (completeMatch && request.method === 'POST') {
-    const sessionId = decodeURIComponent(completeMatch[1]);
-    const session = await env.DB.prepare('SELECT id FROM game_sessions WHERE id = ?').bind(sessionId).first();
-    if (!session) return json(request, env, { error: 'session_not_found' }, 404);
-    const pending = await env.DB.prepare(
-      `SELECT COUNT(*) AS count FROM session_rounds WHERE session_id = ? AND status = 'playing'`
-    ).bind(sessionId).first();
-    if (Number(pending?.count || 0) > 0) return json(request, env, { error: 'rounds_not_finished' }, 409);
-
-    const totalScore = await refreshSessionScore(env, sessionId);
-    await env.DB.prepare(`
-      UPDATE game_sessions SET status = 'completed', completed_at = CURRENT_TIMESTAMP WHERE id = ?
-    `).bind(sessionId).run();
-    return json(request, env, { completed: true, totalScore });
-  }
-
-  const assetGet = path.match(/^\/api\/v1\/assets\/(.+)$/);
-  if (assetGet && request.method === 'GET') {
-    const key = decodeURIComponent(assetGet[1]);
-    const object = await env.ASSETS.get(key);
-    if (!object) return json(request, env, { error: 'asset_not_found' }, 404);
-    const headers = new Headers(corsHeaders(request, env));
-    object.writeHttpMetadata(headers);
-    headers.set('etag', object.httpEtag);
-    headers.set('Cache-Control', 'public, max-age=86400, immutable');
-    return new Response(object.body, { headers });
-  }
-
-  const assetPut = path.match(/^\/api\/v1\/admin\/assets\/(.+)$/);
-  if (assetPut && request.method === 'PUT') {
-    if (!(await requireAdmin(request, env))) return json(request, env, { error: 'unauthorized' }, 401);
-    const key = decodeURIComponent(assetPut[1]);
-    if (!request.body) return json(request, env, { error: 'body_required' }, 400);
-    const contentType = request.headers.get('content-type') || 'application/octet-stream';
-    await env.ASSETS.put(key, request.body, { httpMetadata: { contentType } });
-    return json(request, env, { ok: true, key }, 201);
-  }
-
-  return json(request, env, { error: 'not_found' }, 404);
+  return json(request,env,{ok:true,slug,editToken,questionCount:questions.length},201);
 }
 
-export default {
-  async fetch(request, env) {
-    const url = new URL(request.url);
-    if (request.method === 'OPTIONS') {
-      return new Response(null, { status: 204, headers: corsHeaders(request, env) });
-    }
+async function updateGame(request,env,slug){
+  const token=request.headers.get('X-Edit-Token')||'';
+  if(!token)return json(request,env,{error:'edit_token_required'},401);
+  const game=await env.DB.prepare('SELECT id,edit_token_hash FROM share_games WHERE slug=?').bind(slug).first();
+  if(!game)return json(request,env,{error:'game_not_found'},404);
+  if((await sha256(token))!==game.edit_token_hash)return json(request,env,{error:'invalid_edit_token'},403);
+  const {title,questions}=await parsePublishForm(request);
+  const oldKeys=await assetKeysForGame(env,game.id);
+  const newKeys=await putImages(env,game.id,questions);
+  try{
+    await env.DB.batch([
+      env.DB.prepare(`UPDATE share_games SET title=?,status='published',updated_at=CURRENT_TIMESTAMP,published_at=CURRENT_TIMESTAMP WHERE id=?`).bind(title,game.id),
+      env.DB.prepare('DELETE FROM share_questions WHERE game_id=?').bind(game.id),
+      ...insertQuestions(env,game.id,questions,newKeys)
+    ]);
+  }catch(error){
+    await deleteAssets(env,newKeys);throw error;
+  }
+  await deleteAssets(env,oldKeys);
+  return json(request,env,{ok:true,slug,questionCount:questions.length});
+}
 
-    try {
-      if (url.pathname === '/health') {
-        return json(request, env, { ok: true, service: 'reveal-game-api', version: 'v1' });
-      }
-      if (url.pathname.startsWith('/api/v1/')) {
-        return await handleApi(request, env, url);
-      }
-      return json(request, env, { error: 'not_found' }, 404);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'unknown_error';
-      const clientErrors = new Set(['invalid_content_type']);
-      return json(request, env, { error: clientErrors.has(message) ? message : 'internal_error' }, clientErrors.has(message) ? 400 : 500);
+async function publicGame(request,env,slug){
+  const game=await getPublished(env,slug);
+  if(!game)return json(request,env,{error:'game_not_found'},404);
+  const rows=await env.DB.prepare(`SELECT id,position,question,answer,asset_key
+    FROM share_questions WHERE game_id=? ORDER BY position ASC`).bind(game.id).all();
+  const questions=(rows.results||[]).map((r,i)=>({
+    id:i+1,question:r.question,answer:r.answer,asset:encodeURIComponent(r.asset_key)
+  }));
+  return json(request,env,{game:{slug:game.slug,title:game.title,updatedAt:game.updated_at},questions},200,{'Cache-Control':'public, max-age=30'});
+}
+
+async function assetResponse(request,env,key){
+  const object=await env.ASSETS.get(key);
+  if(!object)return json(request,env,{error:'asset_not_found'},404);
+  const headers=new Headers(cors(request,env));
+  object.writeHttpMetadata(headers);
+  headers.set('ETag',object.httpEtag);
+  headers.set('Cache-Control','public, max-age=31536000, immutable');
+  return new Response(object.body,{headers});
+}
+
+function errorStatus(message){
+  if(['invalid_content_type','manifest_required','invalid_manifest','invalid_questions','answer_required','image_required','invalid_image_type','image_too_large'].includes(message))return 400;
+  if(['db_binding_missing','assets_binding_missing'].includes(message))return 503;
+  return 500;
+}
+
+export default{
+  async fetch(request,env){
+    const url=new URL(request.url);
+    if(request.method==='OPTIONS')return new Response(null,{status:204,headers:cors(request,env)});
+    try{
+      await ensureSchema(env);
+      if((url.pathname==='/health'||url.pathname==='/api/v2/health')&&request.method==='GET')return json(request,env,{ok:true,service:'reveal-game-share-api',version:'v21'});
+      if(url.pathname==='/api/v2/games'&&request.method==='POST')return createGame(request,env);
+      const gameMatch=url.pathname.match(/^\/api\/v2\/games\/([a-z0-9]+)$/);
+      if(gameMatch&&request.method==='GET')return publicGame(request,env,gameMatch[1]);
+      if(gameMatch&&request.method==='PUT')return updateGame(request,env,gameMatch[1]);
+      const assetMatch=url.pathname.match(/^\/api\/v2\/assets\/(.+)$/);
+      if(assetMatch&&request.method==='GET')return assetResponse(request,env,decodeURIComponent(assetMatch[1]));
+      return json(request,env,{error:'not_found'},404);
+    }catch(error){
+      console.error(error);
+      const message=error instanceof Error?error.message:'internal_error';
+      const status=errorStatus(message);
+      return json(request,env,{error:status===500?'internal_error':message},status);
     }
   }
 };
