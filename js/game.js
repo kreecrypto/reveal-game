@@ -10,7 +10,7 @@
 
   const showScreen=name=>{
     $$('.screen').forEach(x=>x.classList.toggle('is-active',x.dataset.screen===name));
-    document.body.dataset.screen=name;
+    document.body.dataset.uiScreen=name;
     window.scrollTo(0,0);
   };
   const normalize=data=>{
