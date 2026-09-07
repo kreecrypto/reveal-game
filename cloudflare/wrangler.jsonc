@@ -1,10 +1,11 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "reveal-game-api",
+  "name": "reveal-game",
   "main": "src/index.js",
-  "compatibility_date": "2026-09-06",
+  "compatibility_date": "2026-09-07",
   "vars": {
-    "ALLOWED_ORIGINS": "https://reveal-game.vercel.app,http://localhost:3000,http://127.0.0.1:5500"
+    "ALLOWED_ORIGINS": "https://reveal-game.vercel.app",
+    "ALLOW_VERCEL_PREVIEWS": "1"
   },
   "d1_databases": [
     {
