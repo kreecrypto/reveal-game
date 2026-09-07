@@ -1,120 +1,194 @@
-# Reveal Game v20.6
+# Reveal Game v21 — Shareable Game
 
 เกมเปิดป้ายภาพ 3×3 แนว Cute Arcade
 
-Production: `https://reveal-game.vercel.app`
+Production ปัจจุบัน: `https://reveal-game.vercel.app`
 
-## Source of Truth
+> Release branch: `v21-shareable-game`
+>
+> v21 จะยังไม่ promote ขึ้น `main` จนกว่า Cloudflare deploy และ live API health gate จะผ่าน
 
-GitHub repo: `kreecrypto/reveal-game`
+## เป้าหมาย v21
 
-- `main` = Production source of truth
-- Vercel deploy frontend อัตโนมัติจาก `main`
-- ห้ามแก้ Production สดโดยไม่ผ่าน GitHub
-
-## Architecture ที่ใช้งานจริงใน v20.6
+v20.6 เก็บเกมไว้ใน IndexedDB ของเครื่องคนสร้างเท่านั้น ส่วน v21 เพิ่มการ Publish ขึ้น Cloud เพื่อให้ส่งลิงก์แล้วคนอื่นเห็นและเล่นเกมชุดเดียวกันได้จากอีกเครื่อง
 
 ```text
-Player / Game Setup
+Setup Builder
+   ├─ IndexedDB = Draft / Offline / Local autosave
+   └─ Publish
         ↓
-Vercel Static Frontend
+Cloudflare Worker — reveal-game-share-api
+   ├─ D1 = game / question / answer / order / edit token hash
+   └─ R2 = cropped WebP images
         ↓
-Browser IndexedDB
-        ├─ game title
-        ├─ questions
-        ├─ answers
-        ├─ edited/cropped image blobs
-        ├─ compressed source image blobs
-        └─ crop metadata (zoom / position)
-
-Fallback demo
+Public slug
         ↓
-data/questions.json
+https://reveal-game.vercel.app/game/:slug
 ```
 
-### Frontend
+## Public link vs Edit link
 
-- `index.html` = หน้าเล่นเกม
-- `setup.html` = หน้า Game Setup Builder + Image Editor
-- `css/game.css` = Design tokens + shared game UI
-- `css/setup.css` = Setup + Image Editor UI
-- `js/game.js` = player state / reveal flow
-- `js/setup.js` = builder / validation / image editor / image processing / dirty-state protection
-- `js/storage.js` = IndexedDB adapter
-- `data/questions.json` = demo fallback
+หลัง Publish สำเร็จ ระบบคืน 2 link:
 
-## Game Setup
+- Public Play Link: `/game/:slug` — ส่งให้คนอื่นเล่นได้
+- Private Edit Link: `/setup.html?edit=:slug#token=:editToken` — เก็บไว้กับคนสร้างเท่านั้น
 
-ผู้ใช้สามารถ:
+Edit token ถูก hash ก่อนเก็บใน D1 และ public game endpoint ไม่คืน token ให้ Player
 
-- ตั้งชื่อเกม
-- อัปโหลดรูป 1–10 ข้อ
-- ใส่คำเฉลย
-- แก้คำถาม
-- เพิ่ม / ลบ / Undo ข้อ
-- แก้ภาพก่อนเล่น
-- ลากจัดตำแหน่งภาพ
-- ย่อ / ขยายด้วย slider, ปุ่ม −/+, mouse wheel หรือ pinch gesture
-- Crop 1:1 ให้พอดีกับบอร์ด 3×3
-- Reset ภาพกลับกึ่งกลาง
-- Save ลง IndexedDB
-- เริ่มเล่นทันที
+## Frontend
 
-ข้อมูลใน v20.6 เป็น **local to browser/device** ยังไม่ sync ข้ามเครื่อง
+- `index.html` — Home / Player / Done
+- `setup.html` — Builder + Image Editor + Publish UI + Share Modal
+- `js/game.js` — local game + public shared game loading
+- `js/setup.js` — builder / image editor / IndexedDB draft
+- `js/storage.js` — local IndexedDB adapter
+- `js/share-api.js` — v21 public/publish API client
+- `js/publish.js` — publish / update / remote edit import / share modal
+- `css/share.css` — publish/share UI
+- `vercel.json` — public `/game/:slug` route + security headers
 
-## Image pipeline
+## Backend v21
 
-เมื่อ Upload ภาพใหม่:
+Backend ถูกแยกจาก legacy Worker เพื่อไม่ชนข้อมูลเดิม:
+
+- Worker: `cloudflare-v21/src/index.js`
+- Wrangler config: `cloudflare-v21/wrangler.jsonc`
+- Worker name: `reveal-game-share-api`
+- D1 binding: `DB` → `reveal-game-db`
+- R2 binding: `ASSETS` → `reveal-game-assets`
+- Migration: `cloudflare/migrations/0004_shareable_games.sql`
+
+### D1 tables
 
 ```text
-Validate → Decode → Resize → Compress source WebP
-        ↓
-Open Image Editor
-        ↓
-Pan / Zoom / Crop 1:1
-        ↓
-Encode cropped WebP → Size guard → IndexedDB
+share_games
+- id
+- slug (unique)
+- title
+- edit_token_hash
+- status
+- created_at
+- updated_at
+- published_at
+
+share_questions
+- id
+- game_id
+- position
+- question
+- answer
+- asset_key
 ```
 
-ระบบเก็บ 2 อย่างเพื่อให้แก้ Crop ซ้ำได้แบบ non-destructive:
+### R2 layout
 
-1. `sourceImageBlob` = รูปต้นทางที่บีบอัดแล้วและยังรักษาสัดส่วนเดิม
-2. `imageBlob` = รูป 1:1 ที่ Crop แล้วสำหรับ Player
+```text
+shared-games/
+  {game-id}/
+    {asset-uuid}.webp
+```
 
-พร้อม `imageCrop` สำหรับเก็บ zoom / offset เพื่อเปิด Editor ครั้งถัดไปแล้วเห็น framing เดิม
+## API contract
 
-Limits:
+Worker runtime routes:
 
-- Source file สูงสุด 15MB
-- Source หลังบีบอัด target ประมาณ ≤1.8MB, hard limit 3MB
-- Cropped image 1024×1024 target ประมาณ ≤1.2MB, hard limit 2.5MB
+```text
+GET  /api/v2/health
+POST /api/v2/games
+GET  /api/v2/games/:slug
+PUT  /api/v2/games/:slug
+GET  /api/v2/assets/:assetKey
+```
 
-เกมเก่า v20.5 ยังเปิดได้ โดยถ้าไม่มี `sourceImageBlob` ระบบจะใช้ `imageBlob` เดิมเป็น source fallback
+Frontend contract uses same-origin prefix:
 
-## Unsaved-change protection
+```text
+/api/share/v2/*
+```
 
-หน้า Setup มี dirty-state guard:
+Before Production release this prefix must proxy/rewrite to the deployed `reveal-game-share-api` Worker.
 
-- เตือนเมื่อกดกลับหน้าเกมทั้งที่ยังไม่ได้ Save
-- เตือน browser เมื่อ refresh / ปิดแท็บ
-- เปิด Image Editor แล้วกด Cancel จะยังไม่เปลี่ยนรูปจริง
-- รูปจะถือว่าแก้แล้วเมื่อกด **ใช้รูปนี้** เท่านั้น
-- Save / Restore / Clear สำเร็จแล้วจะ reset dirty state
+## Publish flow
 
-## Accessibility
+```text
+Create / Edit locally
+↓
+Save IndexedDB draft
+↓
+เผยแพร่เกม
+↓
+Upload manifest + cropped image blobs
+↓
+Worker validates payload
+↓
+R2 stores images
+↓
+D1 stores game/questions
+↓
+Worker returns slug + one-time edit token
+↓
+Share Modal
+├─ Copy Public Link
+└─ Copy Private Edit Link
+```
 
-Image Editor รองรับ:
+Publishing an already-published local game uses the stored `slug + editToken` and performs `PUT` so the public URL stays the same.
 
-- Touch drag / pinch gesture
-- Range slider สำหรับ keyboard
-- ปุ่ม − / + ขนาด touch target 44px
-- Focus trap ภายใน modal
-- Escape เพื่อปิดโดยไม่ Apply
-- Focus visible
+## Remote edit flow
+
+Opening the Private Edit Link:
+
+```text
+/setup.html?edit=:slug#token=:editToken
+↓
+Fetch public game metadata/images
+↓
+Import into IndexedDB draft
+↓
+Edit with the same v20.6 Image Editor
+↓
+Publish update with X-Edit-Token
+```
+
+The URL fragment is used for the private token so it is not sent as part of the normal HTTP request URL.
+
+## Image Editor retained from v20.6
+
+- Crop 1:1 for the 3×3 board
+- Pan / zoom / pinch / wheel
+- Non-destructive source image storage
+- Re-edit after reload
+- WebP image pipeline and size guards
+
+Only the final cropped `imageBlob` is uploaded as the public R2 asset.
+
+## Cloudflare deployment
+
+Workflow: `.github/workflows/cloudflare-v21.yml`
+
+Required GitHub Actions values:
+
+```text
+Secrets
+- CLOUDFLARE_API_TOKEN
+- CLOUDFLARE_ACCOUNT_ID
+```
+
+Workflow does:
+
+```text
+Verify credentials
+↓
+Apply D1 migrations remotely
+↓
+Deploy reveal-game-share-api Worker
+```
+
+### Current release blocker
+
+The v21 application code and frontend CI pass, but Cloudflare deployment is intentionally a release blocker until those repository secrets exist. Do not merge v21 to `main` while the Cloudflare workflow is red or live `/api/share/v2/health` is not 200.
 
 ## Automated QA
-
-Root project มี Playwright smoke/regression tests
 
 ```bash
 npm install
@@ -122,48 +196,41 @@ npm run check
 npm test
 ```
 
-ครอบคลุมอย่างน้อย:
+Coverage includes:
 
-- Setup → Upload → Image Editor → Apply → Answer → Save
-- Reload → ข้อมูลยังอยู่
-- Image Editor zoom / crop metadata → Save → Re-edit
-- Start Game → เปิดป้าย → Reveal
-- Unsaved-change modal
-- Delete → Undo
+- v20.6 Setup / Image Editor / Save / Reload / Player regression
+- Publish UI state
+- Publish request contract
+- Public shared-game loading
+- `/game/:slug` frontend route
+- Remote edit import
+- Share modal accessibility/focus behavior
 
-GitHub Actions workflow: `.github/workflows/ci.yml`
+GitHub CI on the latest v21 branch must be green before promotion.
 
-## Security headers
+## v21 Release Gate
 
-`vercel.json` กำหนด:
+All must pass:
 
-- CSP
-- `X-Frame-Options: DENY`
-- `X-Content-Type-Options: nosniff`
-- Referrer Policy
-- Permissions Policy
+1. `npm run check` PASS
+2. Playwright PASS
+3. GitHub CI PASS
+4. Cloudflare v21 workflow PASS
+5. D1 migration 0004 applied remotely
+6. `reveal-game-share-api` deployed
+7. Same-origin `/api/share/v2/health` → 200
+8. Publish a real game → returns slug/edit token
+9. Public `/game/:slug` opens on a clean browser/device
+10. Public images load from R2 through API
+11. Private edit link imports and updates the same slug
+12. Vercel Preview READY
+13. Fast-forward branch → `main`
+14. Production `/`, `/setup.html`, `/game/:slug` and API health PASS
+15. CI on `main` PASS
 
-## Cloudflare folder
+## Source of Truth
 
-`cloudflare/` เป็น **future/dormant backend** สำหรับ phase ที่ต้องการ:
-
-- แชร์เกมข้ามเครื่อง
-- D1 database
-- R2 image storage
-- public game links
-
-**v20.6 frontend ยังไม่ได้เรียก Cloudflare API ใน runtime**
-
-อย่า deploy หรือถือ `cloudflare/` เป็น production dependency ของ v20.6 จนกว่าจะมี release plan สำหรับ backend โดยตรง
-
-## Release rule
-
-ก่อนปิด release:
-
-1. `npm run check` ผ่าน
-2. Playwright ผ่าน
-3. GitHub CI ผ่าน
-4. Vercel Production = READY
-5. Production `/` และ `/setup.html` ตอบ 200
-6. Image Editor flow ผ่านบน mobile/desktop
-7. ไม่มี P0/P1 regression blocker
+- `main` = current Production Source of Truth
+- `v21-shareable-game` = v21 release candidate until all gates pass
+- Vercel auto-deploys Git refs
+- Never mark v21 COMPLETE based only on Vercel `READY`; Cloudflare + live share E2E must also pass
