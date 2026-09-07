@@ -18,7 +18,7 @@ async function fillFirstQuestion(page,{answer='แมวเทสต์'}={}){
 }
 
 async function mockShareHealth(page){
-  await page.route('**/api/share/v2/health',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,version:'v21'})}));
+  await page.route('**/rest/v1/rpc/reveal_share_health',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,version:'v21',backend:'supabase'})}));
 }
 
 test('setup saves, reloads, and plays the custom game',async({page})=>{
@@ -104,37 +104,61 @@ test('removed question can be undone before save',async({page})=>{
   await expect(page.locator('[data-item]')).toHaveCount(2);
 });
 
-test('v21 publishes a saved game and returns public plus private links',async({page})=>{
+test('v21 publishes directly to Supabase and returns public plus private links',async({page})=>{
   await mockShareHealth(page);
-  await page.route('**/api/share/v2/games',async route=>{
+  let sharedSlug='';
+
+  await page.route('**/rest/v1/reveal_games**',async route=>{
+    const request=route.request();
+    if(request.method()==='POST'){
+      const payload=JSON.parse(request.postData()||'{}');
+      sharedSlug=payload.slug;
+      expect(payload.status).toBe('draft');
+      expect(payload.edit_token_hash).toMatch(/^[0-9a-f]{64}$/);
+      await route.fulfill({status:201,body:''});
+      return;
+    }
+    if(request.method()==='PATCH'){
+      expect(request.headers()['x-edit-token']).toBeTruthy();
+      const payload=JSON.parse(request.postData()||'{}');
+      expect(payload.status).toBe('published');
+      await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([{slug:sharedSlug}])});
+      return;
+    }
+    await route.fulfill({status:405,contentType:'application/json',body:JSON.stringify({error:'unexpected_method'})});
+  });
+
+  await page.route('**/storage/v1/object/reveal-game-assets/**',async route=>{
     expect(route.request().method()).toBe('POST');
-    await route.fulfill({status:201,contentType:'application/json',body:JSON.stringify({ok:true,slug:'shareabc',editToken:'secret-token',questionCount:1})});
+    expect(route.request().headers()['x-edit-token']).toBeTruthy();
+    await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({Key:'ok'})});
   });
 
   await page.goto('/setup.html');
-  await expect(page.locator('[data-ui="cloud-status"]')).toContainText('Cloud พร้อมแชร์');
+  await expect(page.locator('[data-ui="cloud-status"]')).toContainText('Share พร้อม');
   await page.locator('#game-title').fill('เกมแชร์เทสต์');
   await fillFirstQuestion(page,{answer:'แมวแชร์'});
   await page.getByRole('button',{name:'เผยแพร่เกม'}).click();
 
   await expect(page.locator('[data-ui="share-modal"]')).not.toHaveClass(/is-hidden/);
-  await expect(page.locator('[data-ui="share-link"]')).toHaveValue(/\/game\/shareabc$/);
-  await expect(page.locator('[data-ui="edit-link"]')).toHaveValue(/setup\.html\?edit=shareabc#token=secret-token$/);
+  expect(sharedSlug).toMatch(/^[a-z0-9]{10}$/);
+  await expect(page.locator('[data-ui="share-link"]')).toHaveValue(new RegExp(`/game/${sharedSlug}$`));
+  await expect(page.locator('[data-ui="edit-link"]')).toHaveValue(new RegExp(`setup\\.html\\?edit=${sharedSlug}#token=.+$`));
 });
 
-test('v21 public shared game loads the cloud payload before local draft',async({page})=>{
-  await page.route('**/api/share/v2/games/shareabc',route=>route.fulfill({
-    status:200,contentType:'application/json',body:JSON.stringify({
-      game:{slug:'shareabc',title:'เกมจาก Cloud'},
-      questions:[{id:1,question:'นี่อะไร?',answer:'แมว Cloud',asset:'games%2Fdemo%2Fcat.webp'}]
-    })
+test('v21 public shared game loads Supabase payload before local draft',async({page})=>{
+  await page.route('**/rest/v1/rpc/reveal_get_game',route=>route.fulfill({
+    status:200,contentType:'application/json',body:JSON.stringify([{
+      slug:'shareabc',title:'เกมจาก Supabase',updated_at:'2026-09-07T00:00:00Z',
+      manifest:{questions:[{question:'นี่อะไร?',answer:'แมว Supabase',assetPath:'shared-games/shareabc/cat.png'}]}
+    }])
   }));
-  await page.route('**/api/share/v2/assets/**',route=>route.fulfill({status:200,contentType:'image/png',body:tinyPng}));
+  await page.route('**/storage/v1/object/public/reveal-game-assets/**',route=>route.fulfill({status:200,contentType:'image/png',body:tinyPng}));
 
   await page.goto('/?share=shareabc');
-  await expect(page.locator('[data-ui="game-title"]')).toContainText('เกมจาก Cloud');
+  await expect(page.locator('[data-ui="game-title"]')).toContainText('เกมจาก Supabase');
   await page.getByRole('button',{name:'ลุยเลย'}).click();
   await expect(page.locator('[data-screen="game"]')).toHaveClass(/is-active/);
   await page.getByRole('button',{name:'ไม่ไหวละ ดูเฉลย'}).click();
-  await expect(page.locator('[data-ui="answer"]')).toHaveText('แมว Cloud');
+  await expect(page.locator('[data-ui="answer"]')).toHaveText('แมว Supabase');
 });
