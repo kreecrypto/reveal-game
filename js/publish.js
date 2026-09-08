@@ -19,7 +19,10 @@
 
   const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   const readMeta=()=>{try{return JSON.parse(localStorage.getItem(META_KEY)||'null')}catch{return null}};
-  const writeMeta=value=>localStorage.setItem(META_KEY,JSON.stringify(value));
+  const writeMeta=value=>{
+    localStorage.setItem(META_KEY,JSON.stringify(value));
+    RevealGameStore.rememberShareEdit?.(value);
+  };
   const clearMeta=()=>localStorage.removeItem(META_KEY);
   const clearImportFlags=()=>{for(const key of Object.keys(sessionStorage)){if(key.startsWith(IMPORT_PREFIX))sessionStorage.removeItem(key)}};
   const hashToken=()=>new URLSearchParams(location.hash.replace(/^#/,'' )).get('token')||'';
@@ -45,21 +48,22 @@
 
   const refreshAvailability=({force=false}={})=>{
     const complete=!playButton.disabled;
+    const hasSharedGame=Boolean(readMeta()?.slug&&readMeta()?.editToken);
     publishButton.disabled=busy||!complete;
     if(busy){
-      publishButton.textContent='กำลังสร้างลิงก์...';
+      publishButton.textContent=hasSharedGame?'กำลังอัปเดต...':'กำลังสร้างลิงก์...';
       return;
     }
-    publishButton.textContent='สร้างลิงก์';
+    publishButton.textContent=hasSharedGame?'อัปเดตลิงก์':'สร้างลิงก์';
     if(force||statusMode==='idle'){
-      setStatus(complete?'พร้อมส่งให้เพื่อนเล่น':'ใส่รูปและเฉลยให้ครบก่อน');
+      setStatus(complete?(hasSharedGame?'แก้ไขแล้วใช้ลิงก์เดิมได้':'พร้อมส่งให้เพื่อนเล่น'):'ใส่รูปและเฉลยให้ครบก่อน');
     }
   };
 
   const markShareDirty=()=>{
     if(busy)return;
     const complete=!playButton.disabled;
-    setStatus(complete&&readMeta()?.slug?'มีการแก้ไข · สร้างลิงก์อีกครั้งเพื่ออัปเดต':complete?'พร้อมส่งให้เพื่อนเล่น':'ใส่รูปและเฉลยให้ครบก่อน');
+    setStatus(complete&&readMeta()?.slug?'มีการแก้ไข · กดอัปเดตเพื่อใช้ลิงก์เดิม':complete?'พร้อมส่งให้เพื่อนเล่น':'ใส่รูปและเฉลยให้ครบก่อน');
     refreshAvailability();
   };
 
@@ -110,7 +114,7 @@
   const publishGame=async()=>{
     if(publishButton.disabled||busy)return;
     busy=true;
-    setStatus('กำลังเตรียมลิงก์...');
+    setStatus(readMeta()?.slug?'กำลังอัปเดตลิงก์เดิม...':'กำลังเตรียมลิงก์...');
     refreshAvailability();
     try{
       const game=await waitForFreshSave();
@@ -118,10 +122,10 @@
       const result=meta?.slug&&meta?.editToken
         ? await RevealShareApi.update(meta.slug,meta.editToken,game)
         : await RevealShareApi.publish(game);
-      const next={slug:result.slug||meta?.slug,editToken:result.editToken||meta?.editToken};
+      const next={slug:result.slug||meta?.slug,editToken:result.editToken||meta?.editToken,title:game.title||'เกมของฉัน'};
       if(!next.slug||!next.editToken)throw new Error('backend_unavailable');
       writeMeta(next);
-      setStatus('ลิงก์พร้อมแล้ว', 'success');
+      setStatus(meta?.slug?'อัปเดตแล้ว · ลิงก์เดิมใช้ต่อได้':'ลิงก์พร้อมแล้ว', 'success');
       openShare(next.slug);
     }catch(error){
       console.error(error);
@@ -143,6 +147,7 @@
     setStatus('กำลังโหลดเกม...');
     try{
       const remote=await RevealShareApi.fetchGame(slug);
+      writeMeta({slug,editToken:token,title:remote.game.title});
       const questions=[];
       for(let i=0;i<remote.questions.length;i++){
         const q=remote.questions[i];
