@@ -4,6 +4,7 @@
   const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
   const ui=n=>$(`[data-ui="${n}"]`),action=n=>$(`[data-action="${n}"]`);
   const DEFAULT_QUESTION='นี่มันตัวอะไรเนี่ย?';
+  const META_KEY='reveal-game-publish-v21';
   const params=new URLSearchParams(location.search);
   const shareSlug=params.get('share');
   const state={questions:[],title:'Demo 10 ข้อ',index:0,opened:new Set(),revealed:false,objectUrls:[],mode:shareSlug?'shared':'local'};
@@ -88,9 +89,47 @@
     });
   };
 
+  const getOwnerEditMeta=()=>{
+    if(!shareSlug)return null;
+    const stored=RevealGameStore.getShareEdit?.(shareSlug);
+    if(stored?.editToken)return stored;
+    try{
+      const legacy=JSON.parse(localStorage.getItem(META_KEY)||'null');
+      if(String(legacy?.slug||'').toLowerCase()===String(shareSlug).toLowerCase()&&legacy?.editToken){
+        RevealGameStore.rememberShareEdit?.(legacy);
+        return legacy;
+      }
+    }catch{}
+    return null;
+  };
+
+  const ownerEditUrl=()=>{
+    const meta=getOwnerEditMeta();
+    if(!meta?.editToken)return '';
+    const url=new URL('/setup.html',location.origin);
+    url.searchParams.set('edit',String(shareSlug));
+    url.hash=`token=${encodeURIComponent(meta.editToken)}`;
+    return url.toString();
+  };
+
+  const renderOwnerActions=()=>{
+    if(state.mode!=='shared')return;
+    const editUrl=ownerEditUrl();
+    $$('a[href="/setup.html"]').forEach(link=>{
+      if(editUrl){
+        link.href=editUrl;
+        link.textContent='แก้ไขเกมนี้';
+      }else{
+        link.href='/setup.html';
+        link.textContent='สร้างเกม';
+      }
+    });
+  };
+
   const renderHome=()=>{
     ui('game-title').textContent=`${state.title} · ${state.questions.length} ข้อ`;
     document.body.dataset.gameMode=state.mode;
+    renderOwnerActions();
   };
   const render=()=>{
     const item=state.questions[state.index],total=state.questions.length;
